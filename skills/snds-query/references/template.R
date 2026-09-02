@@ -264,10 +264,9 @@ dbDisconnect(conn)
 # ==============================================================================
 # Patterns dbplyr/Oracle — rappels
 # - Tables : tbl(conn, I("NOM_TABLE")) — PMSI suffixé par année (2 chiffres),
-#   DCIR/référentiels non millésimés (pas de schéma comme sur le portail ATIH).
+#   DCIR/référentiels non millésimés.
 # - substr(x, 1, 3) -> SUBSTR pour les listes simples ; motifs complexes :
-#   filter(sql("REGEXP_LIKE(col, '<regex>')")) — Oracle utilise REGEXP_LIKE,
-#   PAS REGEXP_SIMILAR (spécifique Teradata).
+#   filter(sql("REGEXP_LIKE(col, '<regex>')")) — fonction Oracle.
 # - %in% sur petit vecteur -> IN (...) ; longues listes de codes : copy_to() +
 #   semi_join sur table temporaire (penser à l'indexation Oracle si la table
 #   est matérialisée : %m_stats_table(nom_table=...) côté SAS après un

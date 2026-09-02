@@ -244,10 +244,10 @@ dbDisconnect(conn)
 # ==============================================================================
 # Patterns dbplyr/Oracle/Rmd — rappels
 # - Tables : tbl(conn, I("NOM_TABLE")) — PMSI suffixé par année, DCIR non
-#   millésimé (pas de schéma comme sur le portail ATIH).
+#   millésimé.
 # - substr(x, a, b) %in% c(...) pour les codes courts -> IN (...) côté SQL ;
-#   motifs complexes -> filter(sql("REGEXP_LIKE(col, '<regex>')")) (Oracle :
-#   REGEXP_LIKE, pas REGEXP_SIMILAR qui est spécifique Teradata).
+#   motifs complexes -> filter(sql("REGEXP_LIKE(col, '<regex>')")) (fonction
+#   Oracle).
 # - n_distinct(x) -> COUNT(DISTINCT x). Pas de clé séjour unique nativement :
 #   construire paste0(ETA_NUM, "-", RSA_NUM) avant n_distinct().
 # - collect() : jamais sur une table de séjours/prestations entière, toujours

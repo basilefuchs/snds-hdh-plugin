@@ -55,8 +55,8 @@ AskUserQuestion), sinon à l'écrit, en attendant la réponse avant de continuer
    tables pertinentes, puis la page HTML détail correspondante dans
    `references/dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html` pour la liste
    exhaustive des colonnes et leur disponibilité par millésime. Il n'existe
-   **pas** de CSV variable-par-variable unique comme pour ATIH : la
-   vérification se fait table par table via les pages HTML. La section
+   **pas** de CSV variable-par-variable unique : la vérification se fait
+   table par table via les pages HTML. La section
    `snds/tables/` de la documentation officielle (ressource 2) est un schéma
    alternatif à croiser en cas de doute ou d'absence dans Kwikly.
 4. `references/modele-donnees.md` — synthèse du modèle de données : les 6
@@ -106,9 +106,7 @@ la question est l'erreur la plus coûteuse.
 
 Identifier ensuite, dans l'ordre :
 
-- **La ou les sources SNDS pertinentes.** C'est la question structurante,
-  propre au SNDS (elle n'a pas d'équivalent aussi net côté ATIH, où tout part
-  du PMSI) :
+- **La ou les sources SNDS pertinentes.** C'est la question structurante :
   - **DCIR** (datamart de consommation inter-régimes) : soins de ville et
     prestations remboursées hors hospitalisation — consultations, actes CCAM
     en ville, pharmacie, biologie, transport… Table d'entrée : `ER_PRS_F`.
@@ -147,8 +145,8 @@ tables, PMSI — 189 tables, CAUSE_DECES — 2 tables, CARTOGRAPHIE — 5 tables
 VALEUR — 478 tables de valeurs/codes, AUTRE — 491 tables dont les 478 de
 VALEUR plus 13 tables de référence propres : notamment `IR_BEN_R`
 (référentiel bénéficiaire) et `IR_PHA_R` (référentiel médicament)). Il n'y a
-pas de CSV variable-par-variable exhaustif comme pour ATIH : la recherche se
-fait en **deux niveaux**.
+pas de CSV variable-par-variable exhaustif : la recherche se fait en **deux
+niveaux**.
 
 **Niveau 1 — trouver la ou les tables candidates**, dans
 `references/dictionnaire/index-tables.csv` (colonnes `categorie;table;libelle;chemin`) :

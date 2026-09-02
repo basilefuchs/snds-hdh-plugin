@@ -119,9 +119,9 @@ certificat).
 
 ## Chaînage patient — 3 identifiants distincts, pas de clé universelle
 
-Contrairement à ATIH (une seule clé `anonyme` commune à tous les champs), le
-SNDS utilise **trois variantes d'identifiant pseudonymisé selon la source**,
-sans table de passage directe fournie dans cet export :
+Le SNDS utilise **trois variantes d'identifiant pseudonymisé selon la
+source**, sans clé universelle ni table de passage directe fournie dans cet
+export :
 
 | Source          | Colonne(s) identifiant patient      |
 |------------------|----------------------------------------|
@@ -158,9 +158,8 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 ## Filtres CIM-10/CCAM/ATC : `substr`/`%in%` ou `REGEXP_LIKE` Oracle
 
 - Listes simples de codes : `substr(DGN_PAL, 1, 3) %in% c("E10", ...)`.
-- Motifs complexes ou multi-racines : `REGEXP_LIKE` en SQL brut via `sql()` —
-  c'est le pattern maison SNDS (contrairement à ATIH qui utilise
-  `REGEXP_SIMILAR` côté Teradata) :
+- Motifs complexes ou multi-racines : `REGEXP_LIKE` en SQL brut via `sql()`
+  (fonction Oracle) :
   `filter(sql("REGEXP_LIKE(CDC_ACT, '^[A-Z]{3}L')"))` (exemple validé,
   `snds-brouillon.R`) ou `filter(sql("REGEXP_LIKE(PHA_ATC_CLA, '^B01|^N06AB')"))`
   côté pharmacie.
@@ -173,8 +172,8 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 
 ## Pièges classiques (à vérifier / signaler systématiquement)
 
-1. **Année PMSI = année de sortie**, comme ATIH : un séjour à cheval compte
-   sur le millésime de sortie. L'incidence par date d'entrée nécessite les
+1. **Année PMSI = année de sortie** : un séjour à cheval compte sur le
+   millésime de sortie. L'incidence par date d'entrée nécessite les
    dates réelles (`EXE_SOI_DTD`), indisponibles avant 2009 (forcées au 1er du
    mois/année).
 2. **Séances (MCO)** : GHM commençant par `28` — un patient dialysé peut
@@ -213,8 +212,8 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 
 ## Comment utiliser le dictionnaire Kwikly (recherche en deux niveaux)
 
-Il n'existe pas de CSV variable-par-variable unique comme pour ATIH. La
-recherche se fait en deux temps :
+Il n'existe pas de CSV variable-par-variable unique. La recherche se fait en
+deux temps :
 
 1. **Trouver la ou les tables candidates** dans
    `references/dictionnaire/index-tables.csv` (colonnes

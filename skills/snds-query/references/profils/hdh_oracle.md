@@ -264,9 +264,9 @@ Même clé technique `(ETA_NUM, RHA_NUM)`, tables `T_SSR{aa}C`/`B`/`D`
 | Type de génération du RHA (depuis 2015)       | `TYP_GEN_RHA` (`T_SSR{aa}C`) |
 | Mois/année du RHA                             | `MOI_ANN` (`T_SSR{aa}C`) |
 
-Trio diagnostique SSR (`FP_PEC`/`MOR_PRP`/`ETL_AFF`) = équivalent fonctionnel
-du `finalp`/`morbidp`/`etiolp` ATIH — à toujours faire préciser lequel (ou
-lesquels) correspond au périmètre demandé, cf. `clarifications.md`.
+Trio diagnostique SSR (`FP_PEC`/`MOR_PRP`/`ETL_AFF`) — à toujours faire
+préciser lequel (ou lesquels) correspond au périmètre demandé, cf.
+`clarifications.md`.
 
 Filtres qualité SSR recommandés (source : documentation officielle HDH,
 fiche filtres) : erreur de groupage `GRG_GME NOT LIKE '90%' OR GME_COD NOT
