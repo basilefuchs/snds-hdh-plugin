@@ -55,8 +55,9 @@ du protocole).
    effectifs très différents.
 2. **Champ(s) PMSI** (si PMSI retenu) : MCO seul (recommandé pour
    « hospitalisation ») ou MCO + SSR ; HAD et RIP (psychiatrie) sur demande
-   explicite (périmètre moins éprouvé dans ce profil, voir
-   `modele-donnees.md`).
+   explicite (filtres qualité validés via la documentation officielle HDH,
+   mais tables de diagnostics/actes détaillées à vérifier au cas par cas
+   dans le dictionnaire Kwikly, voir `modele-donnees.md`).
 3a. **Codes CIM-10** (si le phénomène est une pathologie) : proposer une
    liste précise et la faire valider. Si WebSearch est disponible, chercher
    d'abord une définition publiée (Santé publique France, cartographie des
@@ -100,13 +101,16 @@ du protocole).
 8. **Séances** (MCO, GHM `28*`) : exclues (recommandé quand on compte des
    hospitalisations) ou incluses ?
 9. **Séjours/GHM en erreur** : GHM/GME `90*` — exclus par défaut.
-10. **Doublons de transmission** : établissements APHP/APHM/HCL déjà
-    déclarés en double — exclus par défaut (`ETA_NUM NOT IN
-    ('130786049','690781810','750712184')`).
+10. **Doublons de transmission** (MCO uniquement) : établissements
+    APHP/APHM/HCL déjà déclarés en double — exclus par défaut, mais
+    **seulement pour les séjours 2005-2017** (remontées corrigées depuis) ;
+    liste à jour des FINESS récupérée en direct sur la documentation
+    officielle plutôt que codée en dur (voir `profils/hdh_oracle.md`).
 11. **Chaînage en erreur / qualité** : côté PMSI, codes retour de contrôle
-    (`NIR_RET`, `NAI_RET`, `SEX_RET`, `SEJ_RET`, `FHO_RET`, `PMS_RET`)
-    différents de `'0'` — à exclure si comptage de patients uniques, signaler
-    la perte. Côté DCIR, `CPL_MAJ_TOP < 2` et `DPN_QLF <> 71` (en gérant les
+    (`NIR_RET`, `NAI_RET`, `SEX_RET`, `SEJ_RET`, `FHO_RET`, `PMS_RET` depuis
+    2005, `COH_NAI_RET`/`COH_SEX_RET` depuis 2013) différents de `'0'` — à
+    exclure si comptage de patients uniques, signaler la perte. Côté DCIR,
+    `DPN_QLF NOT IN (71,72)` et `PRS_DPN_QLP NOT IN (71,72)` (en gérant les
     `NULL`).
 12. Autres selon contexte : séjours de la même journée, nouveau-nés, IVG,
     prestations inter-établissements, décès en cours de séjour (proxy de

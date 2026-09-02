@@ -36,25 +36,65 @@ AskUserQuestion), sinon à l'écrit, en attendant la réponse avant de continuer
    entrepôt de données de recherche autre que le SNDS national…), lui demander
    une fois les équivalents et lui proposer d'écrire un nouveau profil dans ce
    répertoire pour les fois suivantes.
-2. Le dictionnaire des tables/variables SNDS : `references/dictionnaire/`.
+2. **Documentation officielle en ligne du Health Data Hub**
+   (https://documentation-snds.health-data-hub.fr/) — référence vivante,
+   activement maintenue, qui **fait foi sur les filtres recommandés et la
+   méthodologie**, y compris en cas de contradiction avec le profil ou les
+   autres références de cette skill. Si l'outil WebFetch est disponible, la
+   consulter (via WebFetch) en cas de doute sur un filtre, pour un sujet non
+   couvert localement (une des ~80 fiches thématiques sous `snds/fiches/`,
+   ex. chaînage mère-enfant, cartographie des pathologies, ALD), ou pour la
+   liste à jour des FINESS APHP/APHM/HCL (fiche `2023-12-11_synthese_filtres_snds_v1`,
+   volontairement non recopiée en dur dans le profil — trop longue et sujette
+   à péremption). Si WebFetch n'est pas disponible, se rabattre sur les
+   ressources 1, 3 et 5 ci-dessous, en signalant à l'utilisateur qu'elles
+   n'ont pas été recroisées avec la documentation officielle pour cette
+   génération.
+3. Le dictionnaire des tables/variables SNDS : `references/dictionnaire/`.
    Deux niveaux (voir étape 2) : `index-tables.csv` pour trouver la ou les
    tables pertinentes, puis la page HTML détail correspondante dans
    `references/dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html` pour la liste
    exhaustive des colonnes et leur disponibilité par millésime. Il n'existe
    **pas** de CSV variable-par-variable unique comme pour ATIH : la
-   vérification se fait table par table via les pages HTML.
-3. `references/modele-donnees.md` — synthèse du modèle de données : les 6
+   vérification se fait table par table via les pages HTML. La section
+   `snds/tables/` de la documentation officielle (ressource 2) est un schéma
+   alternatif à croiser en cas de doute ou d'absence dans Kwikly.
+4. `references/modele-donnees.md` — synthèse du modèle de données : les 6
    catégories SNDS, tables clés par catégorie, chaînage patient (3 identifiants
    distincts selon la source), raccourcis de classification, pièges génériques.
-4. `references/clarifications.md` — checklist des clarifications à poser
+5. `references/clarifications.md` — checklist des clarifications à poser
    (source SNDS, inclusion, exclusion, critère de jugement, stratification).
-5. `references/points-de-vigilance.md` — registres de risques méthodologiques
+6. `references/points-de-vigilance.md` — registres de risques méthodologiques
    à vérifier pendant la clarification (étape 3) et à la synthèse (étape 4).
-6. `references/template.R` — squelette de script R et patterns dbplyr/Oracle
+7. `references/template.R` — squelette de script R et patterns dbplyr/Oracle
    validés (livrable par défaut : script `.R` autonome).
-7. `references/template.Rmd` — squelette de rapport R Markdown (mêmes
+8. `references/template.Rmd` — squelette de rapport R Markdown (mêmes
    patterns, plus mise en forme narrative). À utiliser quand le format demandé
    (clarification E) est un rapport plutôt qu'un script.
+
+### Ressources complémentaires (non autoritatives)
+
+Ces deux ressources sont utiles ponctuellement mais **ne l'emportent jamais**
+sur les ressources 1-8 en cas de contradiction — à consulter via WebFetch/
+WebSearch si disponibles, pas à recopier en dur dans les fichiers de la skill :
+
+- **Forum d'entraide** (https://entraide.health-data-hub.fr/) — communauté
+  Discourse active (DIM, chargés d'études, équipe HDH). Utile en dépannage :
+  message d'erreur Oracle incompris, comportement de table inattendu,
+  question de qualité de données non couverte par le profil ou la
+  documentation officielle. Contenu **communautaire**, non validé
+  institutionnellement — à citer comme piste à vérifier, pas comme fait
+  établi. La catégorie « Espace d'échange des détenteurs de données »
+  contient parfois des réponses de l'équipe HDH, à traiter avec un peu plus
+  de confiance que le reste du forum sans pour autant l'assimiler à la
+  documentation officielle (ressource 2).
+- **Cartographie de l'écosystème SNDS**
+  (https://ecosysteme-snds.health-data-hub.fr/) — annuaire de projets et
+  algorithmes ayant utilisé le SNDS. À consulter à l'étape 3 (proposer une
+  définition), en complément de WebSearch, pour trouver une définition de
+  cohorte/pathologie déjà validée par un projet antérieur plutôt que d'en
+  reproposer une from scratch — toujours citer le projet source si une
+  définition en est reprise.
 
 ## Workflow
 
@@ -163,6 +203,11 @@ Points d'attention propres à cet export, à garder en tête en étape 2 :
 - Pour toute variable ou table utilisée dans le script final, vérifier que le
   millésime demandé est bien couvert (colonne annuelle à `X`, ou table
   listée dans le bon dossier de catégorie) avant de l'intégrer au protocole.
+- Si le dictionnaire, le profil et la documentation officielle ne suffisent
+  pas à lever un doute (comportement de table inattendu, message d'erreur
+  Oracle incompris…), le forum d'entraide (voir « Ressources complémentaires »
+  ci-dessus) peut contenir un fil déjà répondu — à signaler comme piste
+  communautaire à vérifier, pas comme fait établi.
 
 ### 3. Proposer une définition et clarifier (OBLIGATOIRE)
 
@@ -178,10 +223,13 @@ pathologies de la CNAM, fiches HAS/ATIH, publications) ; acte → CCAM
 (nomenclature, sociétés savantes) ; médicament → classe ATC (référentiel
 OMS/ANSM). Si l'outil WebSearch (ou WebFetch) est disponible, rechercher les
 définitions publiées et proposer la liste de codes **avec sa source citée** ;
-sinon proposer d'après connaissances en le signalant. Dans les deux cas la
-liste n'est qu'une proposition : les critères font souvent débat entre
-médecins DIM — l'utilisateur amende librement, et c'est sa version qui fait
-foi dans le protocole.
+penser aussi à la cartographie de l'écosystème SNDS
+(https://ecosysteme-snds.health-data-hub.fr/, voir « Ressources
+complémentaires » ci-dessus) pour une définition déjà validée par un projet
+antérieur. Sinon proposer d'après connaissances en le signalant. Dans les
+deux cas la liste n'est qu'une proposition : les critères font souvent débat
+entre médecins DIM — l'utilisateur amende librement, et c'est sa version qui
+fait foi dans le protocole.
 
 **Préciser explicitement par quelle voie SNDS ce code sera recherché**, car la
 réponse détermine la table et la colonne à utiliser (voir `modele-donnees.md`) :
@@ -267,7 +315,10 @@ communes aux deux formats :
   (`paste0("T_MCO", aa, "B")`) à partir du nom générique Kwikly.
 - Filtres qualité systématiques du profil appliqués (voir `points-de-vigilance.md`
   et `modele-donnees.md`), et **jamais de `collect()`** avant l'agrégation
-  finale — le calcul reste côté Oracle.
+  finale — le calcul reste côté Oracle. Si le protocole porte sur des séjours
+  MCO 2005-2017 et que WebFetch est disponible, récupérer la liste à jour des
+  FINESS APHP/APHM/HCL sur la documentation officielle (ressource 2) plutôt
+  que d'en improviser une.
 - Rappel dans le script (commentaire) de la nécessité de `%m_stats_table()`
   (SAS) après toute création de table jointe destinée à être réutilisée.
 - En-tête de script normalisé : bloc titre (indicateur, question, protocole)

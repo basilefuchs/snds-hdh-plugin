@@ -2,9 +2,11 @@
 
 > **Priorité des sources** : `references/profils/hdh_oracle.md` décrit
 > l'environnement réel (mapping validé, pièges, défauts recommandés) et
-> **fait foi** en cas de contradiction avec ce document. Ce document reste
-> utile pour la vue d'ensemble et ce que le profil ne couvre pas encore
-> (notamment HAD/RIP, non validés).
+> **fait foi** en cas de contradiction avec ce document. La documentation
+> officielle en ligne du Health Data Hub
+> (https://documentation-snds.health-data-hub.fr/, cf. `profils/hdh_oracle.md`
+> § « Documentation officielle en ligne ») fait elle-même foi sur les
+> filtres/méthodologie et prime sur les deux si divergence constatée.
 
 ## Organisation générale — les 6 catégories Kwikly
 
@@ -38,27 +40,32 @@ médicament, catégorie AUTRE), `IR_BEN_R` (référentiel bénéficiaire, catég
 AUTRE), `ER_GEO_LOC_R` (géolocalisation du professionnel de santé). Détail
 des colonnes : voir `profils/hdh_oracle.md`.
 
-Filtres qualité DCIR standard : `CPL_MAJ_TOP < 2` et
-`(DPN_QLF IS NULL OR DPN_QLF <> 71)` — attention à la gestion des `NULL` (un
-simple `!= 71` les exclut silencieusement en SQL Oracle).
+Filtres qualité DCIR standard (source : documentation officielle HDH) :
+`DPN_QLF NOT IN (71, 72)` **et** `PRS_DPN_QLP NOT IN (71, 72)` (exclusion de
+l'activité hospitalière publique en co-remontée), en gérant les `NULL`
+explicitement (`IS NULL`/`IS NOT NULL`, un simple `!= 71` les exclut
+silencieusement en SQL Oracle) ; `CPL_MAJ_TOP <> 2` optionnel, utile pour un
+dénombrement de lignes. Détail complet : `profils/hdh_oracle.md`.
 
 ## PMSI — séjours hospitaliers
 
 Familles de tables par champ et par lettre (clé technique
 `(ETA_NUM, RSA_NUM)` en MCO, `(ETA_NUM, RHA_NUM)` en SSR) :
 
-| Champ | En-tête/chaînage | Diagnostics/GHM | Actes | DAS |
+| Champ | En-tête/chaînage | Diagnostics/GHM/groupage | Actes | DAS |
 |---|---|---|---|---|
 | MCO | `T_MCO{aa}C` | `T_MCO{aa}B` | `T_MCO{aa}A` | `T_MCO{aa}D` |
-| SSR | `T_SSR{aa}C` | `T_SSR{aa}B` | `T_SSR{aa}CCAM`/`CSARR` | `T_SSR{aa}D` |
-| HAD | `T_HAD{aa}C`* | `T_HAD{aa}B`* | `T_HAD{aa}A`* | `T_HAD{aa}D`* |
-| RIP (psychiatrie) | `T_RIP{aa}C`* | `T_RIP{aa}RSA`* | `T_RIP{aa}CCAM`* | `T_RIP{aa}RSAD`* |
+| SSR | `T_SSR{aa}C` | `T_SSR{aa}B` / `T_SSR{aa}GME` | `T_SSR{aa}CCAM`/`CSARR` | `T_SSR{aa}D` |
+| HAD | `T_HAD{aa}C`* | `T_HAD{aa}GRP` | `T_HAD{aa}A`* | `T_HAD{aa}D`* |
+| RIP (psychiatrie) | `T_RIP{aa}C` | `T_RIP{aa}RSA` | `T_RIP{aa}CCAM`* | `T_RIP{aa}RSAD`* |
 
-\* HAD et RIP existent dans le dictionnaire Kwikly mais n'ont pas encore été
-validés dans cet environnement — vérifier les colonnes exactes dans les
-pages détail avant utilisation (voir « Comment utiliser le dictionnaire
-Kwikly » ci-dessous), et le signaler à l'utilisateur comme périmètre moins
-éprouvé.
+Chaînage et filtres qualité de `T_MCO{aa}C`/`T_HAD{aa}C`/`T_RIP{aa}C` et
+groupage de `T_HAD{aa}GRP`/`T_RIP{aa}RSA` **validés** via la documentation
+officielle HDH (voir `profils/hdh_oracle.md`, sections HAD et RIP). \* Tables
+non filtrées : diagnostics/actes détaillés HAD et actes RIP existent dans le
+dictionnaire Kwikly mais leur structure exacte n'a pas encore été vérifiée
+dans cet environnement — vérifier les colonnes dans les pages détail avant
+utilisation (voir « Comment utiliser le dictionnaire Kwikly » ci-dessous).
 
 Diagnostics « principaux » selon le champ :
 
@@ -67,14 +74,19 @@ Diagnostics « principaux » selon le champ :
 | MCO | `DGN_PAL` (DP), `DGN_REL` (DR) — table `T_MCO{aa}B` | `ASS_DGN` — table `T_MCO{aa}D` |
 | SSR | `FP_PEC` (finalité principale), `MOR_PRP` (manifestation morbide principale), `ETL_AFF` (affection étiologique) — table `T_SSR{aa}B` | `DGN_COD` — table `T_SSR{aa}D` |
 
-Filtres qualité PMSI standard (à appliquer sur la table d'en-tête/chaînage
-`C`) :
+Filtres qualité PMSI standard (source : documentation officielle HDH, à
+appliquer sur la table d'en-tête/chaînage `C`, valable pour MCO/HAD/SSR/RIP) :
 `NIR_RET='0' AND NAI_RET='0' AND SEX_RET='0' AND SEJ_RET='0' AND FHO_RET='0'
-AND PMS_RET='0'` (+ `DAT_RET='0'` pour les millésimes récents si les dates
-réelles sont utilisées), et exclusion des doublons de transmission
-`ETA_NUM NOT IN ('130786049','690781810','750712184')` (APHP/APHM/HCL).
-Exclusion GHM/GME en erreur : `SUBSTR(GRG_GHM,1,2) <> '90'` (MCO),
-`GRG_CMC <> '90'` ou `SUBSTR(GRG_GME,1,2) <> '90'` (SSR).
+AND PMS_RET='0'` (depuis 2005), `+ DAT_RET='0'` (depuis 2006), `+
+COH_NAI_RET='0' AND COH_SEX_RET='0'` (depuis 2013). MCO uniquement :
+exclusion des transferts inter-établissements `SEJ_TYP <> 'B' OU NULL`, et
+exclusion des doublons de transmission APHP/APHM/HCL (~50 FINESS, **valable
+uniquement 2005-2017**, liste à récupérer en direct sur la fiche officielle
+plutôt que codée en dur — voir `profils/hdh_oracle.md`). Exclusion GHM/GME
+en erreur : `SUBSTR(GRG_GHM,1,2) <> '90'` (MCO), `GRG_GME NOT LIKE '90%' OU
+GME_COD NOT LIKE '90%'` (SSR, nom de colonne selon millésime), `GHT_NUM <>
+'99'` (HAD), `SEQ_IND <> 'E'` jusqu'en 2016 + `TYP_GEN_RSA = '0'` depuis
+2015 (RIP).
 
 ## CAUSE_DECES — mortalité (CépiDc)
 
@@ -96,10 +108,11 @@ certificat).
   suffixe `_V`). À utiliser pour libeller un résultat, pas comme table de
   faits.
 - **AUTRE** : contient les 478 tables VALEUR **plus** 13 tables de référence
-  propres, dont les deux les plus utiles en pratique : `IR_BEN_R`
-  (référentiel bénéficiaire — décès, résidence, naissance) et `IR_PHA_R`
-  (référentiel médicament — classe ATC, CIP13/UCD). Les 11 autres
-  (`DA_PRA_R`, `IR_ACS_R`(+`_ARC`), `IR_ETM_R`, `IR_IBA_R`, `IR_IMB_R`,
+  propres, dont les trois les plus utiles en pratique : `IR_BEN_R`
+  (référentiel bénéficiaire — décès, résidence, naissance), `IR_PHA_R`
+  (référentiel médicament — classe ATC, CIP13/UCD) et `IR_IMB_R`
+  (référentiel médicalisé — ALD, filtres validés dans `profils/hdh_oracle.md`).
+  Les 10 autres (`DA_PRA_R`, `IR_ACS_R`(+`_ARC`), `IR_ETM_R`, `IR_IBA_R`,
   `IR_MAT_R`, `IR_MTT_R`, `IR_ORC_R`(+`_ARC`)) n'ont pas encore d'usage
   documenté dans cet environnement — à explorer via leur page Kwikly au cas
   par cas.
@@ -136,7 +149,7 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 - Racine de GHM (5 caractères) : `substr(GRG_GHM, 1, 5)` ; CMD (2 car.) :
   `substr(GRG_GHM, 1, 2)`.
 - GHM en erreur : `substr(GRG_GHM, 1, 2) != "90"`. GME (SSR) en erreur :
-  `GRG_CMC != "90"` ou `substr(GRG_GME, 1, 2) != "90"`.
+  `GRG_GME` ou `GME_COD` (selon millésime) commençant par `"90"`.
 - Actes CCAM en ville : un acte = triplet `(CAM_PRS_IDE, CAM_ACT_COD,
   CAM_TRT_PHA)`, pas `CAM_PRS_IDE` seul.
 - Chaînage mère-enfant (MCO) : `ID_MAM_ENF` / `NIR_ANO_MAM` (table
@@ -172,12 +185,17 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
    `BEN_NIR_ANO` CAUSE_DECES) — pas de table de passage directe ; le
    chaînage inter-source est une étape de protocole à part entière, pas une
    jointure anodine.
-5. **`DPN_QLF`/filtres qualité DCIR sur colonnes potentiellement `NULL`** :
-   un simple `col != valeur` exclut silencieusement les `NULL` en SQL Oracle
-   — utiliser `is.na(col) | col != valeur` quand la colonne peut être vide.
-6. **Doublons de transmission** : `ETA_NUM` APHP/APHM/HCL
-   (`'130786049'`,`'690781810'`,`'750712184'`) — à exclure systématiquement,
-   ils ne sont pas filtrés par défaut par les tables sources.
+5. **`DPN_QLF`/`PRS_DPN_QLP`/filtres qualité DCIR sur colonnes potentiellement
+   `NULL`** : un simple `col != valeur` exclut silencieusement les `NULL` en
+   SQL Oracle — utiliser `is.na(col) | col != valeur` quand la colonne peut
+   être vide. De plus, Oracle trie les `NULL` en **dernier** dans un
+   `ORDER BY` (SAS les traite comme valeur minimale) — éviter de trier côté
+   Oracle sur une colonne à `NULL`, reporter le tri après `collect()`.
+6. **Doublons de transmission** : `ETA_NUM` APHP/APHM/HCL — à exclure, mais
+   **uniquement pour les séjours 2005-2017** (remontées corrigées depuis) ;
+   ne pas appliquer ce filtre hors de cette période, et récupérer la liste
+   complète des FINESS concernés en direct sur la fiche officielle plutôt
+   que de se fier à une liste partielle codée en dur.
 7. **Évolutions de codage et de structure de table** : ex. `EXT_PMSI`
    (actes CCAM MCO) absent avant 2015 — deux formes de requête selon le
    millésime ; plus généralement, toujours croiser la période demandée avec
@@ -221,3 +239,25 @@ recherche se fait en deux temps :
 
 Les pièges propres à l'environnement (disponibilité exacte des schémas…)
 sont dans `profils/hdh_oracle.md`, qui fait foi.
+
+## Documentation officielle en ligne (référence vivante)
+
+En complément du dictionnaire Kwikly (structure des tables) et de ce
+document (modèle générique), la documentation collaborative officielle du
+Health Data Hub — https://documentation-snds.health-data-hub.fr/ — est une
+référence vivante à consulter via WebFetch quand elle est disponible,
+en particulier pour tout ce qui n'est pas (encore) capturé statiquement ici :
+les ~80 fiches thématiques (`snds/fiches/`, ex. chaînage mère-enfant,
+cartographie des pathologies, ALD), et la section `snds/tables/` (schéma
+officiel, alimentant https://health-data-hub.shinyapps.io/dico-snds/) à
+croiser avec Kwikly en cas de doute. Le détail des deux fiches déjà exploitées
+pour bâtir ce document (filtres recommandés, valeurs manquantes) est dans
+`profils/hdh_oracle.md`, section « Documentation officielle en ligne ».
+
+Deux ressources complémentaires, non autoritatives (voir `SKILL.md` § « Ressources
+complémentaires » pour leur usage précis) : le [forum d'entraide](https://entraide.health-data-hub.fr/)
+(communauté active, utile en dépannage sur un comportement de table ou un
+message d'erreur Oracle non documenté ailleurs) et la
+[cartographie de l'écosystème SNDS](https://ecosysteme-snds.health-data-hub.fr/)
+(annuaire de projets/algorithmes déjà validés, à consulter pour sourcer une
+définition de cohorte/pathologie à l'étape 3 du workflow).

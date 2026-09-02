@@ -110,10 +110,14 @@ resultat_annuel <- purrr::map2_dfr(annees, an, function(annee, an) {
   mco_b <- tbl(conn, I(paste0("T_MCO", an, "B")))
 
   mco_c |>
+    # Liability MCO (source : documentation officielle HDH) — COH_NAI_RET/
+    # COH_SEX_RET depuis 2013 uniquement ; doublons APHP/APHM/HCL non
+    # applicables ici (période 2005-2017 uniquement, cf. template.R).
     filter(
       NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
       FHO_RET == '0', PMS_RET == '0', DAT_RET == '0',
-      !ETA_NUM %in% c('130786049', '690781810', '750712184')
+      COH_NAI_RET == '0', COH_SEX_RET == '0',
+      SEJ_TYP != 'B' | is.na(SEJ_TYP)
     ) |>
     inner_join(mco_b, by = c("ETA_NUM", "RSA_NUM")) |>
     filter(
@@ -147,16 +151,17 @@ attrition <- purrr::map2_dfr(annees, an, function(annee, an) {
     filter(substr(DGN_PAL, 1, 3) %in% codes_cim3)
   e2 <- e1 |> filter(
     NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
-    FHO_RET == '0', PMS_RET == '0', DAT_RET == '0'
+    FHO_RET == '0', PMS_RET == '0', DAT_RET == '0',
+    COH_NAI_RET == '0', COH_SEX_RET == '0'
   )
-  e3 <- e2 |> filter(!ETA_NUM %in% c('130786049', '690781810', '750712184'))
+  e3 <- e2 |> filter(SEJ_TYP != 'B' | is.na(SEJ_TYP))
   e4 <- e3 |> filter(!GRG_RET %in% c('076', '077', '081', '102'), substr(GRG_GHM, 1, 2) != "90")
 
   purrr::imap_dfr(
-    list("1. Sejours DP cible"             = e1,
-         "2. chainage/qualite (liability)" = e2,
-         "3. hors doublons etablissement"  = e3,
-         "4. hors GHM en erreur"           = e4),
+    list("1. Sejours DP cible"              = e1,
+         "2. chainage/qualite (liability)"  = e2,
+         "3. hors transferts inter-etabl."  = e3,
+         "4. hors GHM en erreur"            = e4),
     function(req, etape) {
       req |> summarise(nb_sejours = n()) |> collect() |> mutate(etape = etape)
     }

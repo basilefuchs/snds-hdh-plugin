@@ -80,11 +80,19 @@ resultat_annuel <- purrr::map2_dfr(annees, an, function(annee, an) {
   mco_b <- tbl(conn, I(paste0("T_MCO", an, "B")))   # séjour (GHM, DP, DR...)
 
   mco_c |>
-    # -- Liability MCO (qualité de chaînage) --
+    # -- Liability MCO (qualité de chaînage, source : documentation officielle
+    #    HDH) -- COH_NAI_RET/COH_SEX_RET disponibles depuis 2013 uniquement ;
+    #    retirer ces 2 conditions si le protocole remonte avant 2013.
     filter(
       NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
       FHO_RET == '0', PMS_RET == '0', DAT_RET == '0',            # DAT_RET absent avant 2006
-      !ETA_NUM %in% c('130786049', '690781810', '750712184')     # doublons APHP/APHM/HCL
+      COH_NAI_RET == '0', COH_SEX_RET == '0',                    # depuis 2013 seulement
+      SEJ_TYP != 'B' | is.na(SEJ_TYP)                             # hors transferts inter-établissements
+      #   Doublons de transmission APHP/APHM/HCL : NE S'APPLIQUE QU'AUX SÉJOURS
+      #   2005-2017 (remontées corrigées depuis). Si le protocole couvre cette
+      #   période, récupérer la liste à jour des FINESS via WebFetch sur la
+      #   fiche officielle (voir profils/hdh_oracle.md) plutôt que la coder en
+      #   dur : !ETA_NUM %in% c(<liste FINESS 2023-12-11_synthese_filtres_snds_v1>)
     ) |>
     inner_join(mco_b, by = c("ETA_NUM", "RSA_NUM")) |>
     filter(
@@ -113,7 +121,8 @@ requete_annee <- function(an) {
     filter(
       NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
       FHO_RET == '0', PMS_RET == '0', DAT_RET == '0',
-      !ETA_NUM %in% c('130786049', '690781810', '750712184')
+      COH_NAI_RET == '0', COH_SEX_RET == '0',
+      SEJ_TYP != 'B' | is.na(SEJ_TYP)
     ) |>
     inner_join(mco_b, by = c("ETA_NUM", "RSA_NUM")) |>
     filter(
@@ -150,7 +159,8 @@ nb_patients_periode <- an |>
 
 # -- Variante : même critère CCAM côté DCIR (ER_CAM_F, clé composite 9 col.) ---
 # actes_dcir <- tbl(conn, I("ER_PRS_F")) |>
-#   filter(CPL_MAJ_TOP < 2, DPN_QLF != 71) |>              # filtres qualité DCIR
+#   filter((is.na(DPN_QLF) | !DPN_QLF %in% c(71, 72)),
+#          (is.na(PRS_DPN_QLP) | !PRS_DPN_QLP %in% c(71, 72))) |>  # filtres qualité DCIR (NULL = OK)
 #   inner_join(tbl(conn, I("ER_CAM_F")), by = DCIR_JOIN_KEY) |>
 #   filter(sql("REGEXP_LIKE(CAM_ACT_COD, '^[A-Z]{3}L')"))
 
@@ -161,7 +171,8 @@ nb_patients_periode <- an |>
 #   filter(!is.na(PHA_CIP_C13)) |>
 #   distinct(PHA_CIP_C13)
 # delivrances <- tbl(conn, I("ER_PRS_F")) |>
-#   filter(CPL_MAJ_TOP < 2, DPN_QLF != 71) |>
+#   filter((is.na(DPN_QLF) | !DPN_QLF %in% c(71, 72)),
+#          (is.na(PRS_DPN_QLP) | !PRS_DPN_QLP %in% c(71, 72))) |>
 #   inner_join(tbl(conn, I("ER_PHA_F")), by = DCIR_JOIN_KEY) |>
 #   inner_join(cip_cible, by = c("PHA_PRS_C13" = "PHA_CIP_C13")) |>
 #   transmute(anonyme = BEN_NIR_PSA, rang = BEN_RNG_GEM, dte_exe = EXE_SOI_DTD)
@@ -207,16 +218,17 @@ attrition <- purrr::map2_dfr(annees, an, function(annee, an) {
     filter(substr(DGN_PAL, 1, 3) %in% codes_cim3)
   e2 <- e1 |> filter(
     NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
-    FHO_RET == '0', PMS_RET == '0', DAT_RET == '0'
+    FHO_RET == '0', PMS_RET == '0', DAT_RET == '0',
+    COH_NAI_RET == '0', COH_SEX_RET == '0'                # depuis 2013 seulement
   )
-  e3 <- e2 |> filter(!ETA_NUM %in% c('130786049', '690781810', '750712184'))
+  e3 <- e2 |> filter(SEJ_TYP != 'B' | is.na(SEJ_TYP))      # hors transferts inter-établissements
   e4 <- e3 |> filter(!GRG_RET %in% c('076', '077', '081', '102'), substr(GRG_GHM, 1, 2) != "90")
 
   purrr::imap_dfr(
-    list("1. Sejours DP cible"           = e1,
+    list("1. Sejours DP cible"            = e1,
          "2. chainage/qualite (liability)" = e2,
-         "3. hors doublons etablissement" = e3,
-         "4. hors GHM en erreur"          = e4),
+         "3. hors transferts inter-etabl." = e3,
+         "4. hors GHM en erreur"           = e4),
     function(req, etape) {
       req |> summarise(nb_sejours = n()) |> collect() |> mutate(etape = etape)
     }
