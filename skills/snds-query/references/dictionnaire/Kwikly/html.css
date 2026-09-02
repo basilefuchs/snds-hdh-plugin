@@ -1,0 +1,280 @@
+/* Couleur du fond de la page */
+body { 
+    font-family: sans-serif;
+    background: #FFFFFF;
+    width:95%;
+}
+
+/* Définition des caractéristiques des titres */
+h1 { 
+    color: #0C6B9E; 
+    width:75%;
+    font: 12pt arial;
+    font-family: sans-serif; 
+    font-weight: bold; 
+    border-bottom: #0C6B9E 1px solid;
+}
+
+h2 { 
+    color: #FFFFFF; 
+    width:75%;
+    font: 12pt arial;
+    font-family: sans-serif; 
+    font-style: italic; 
+    font-weight: bold; 
+    border-bottom: #0C6B9E 1px solid;
+}
+
+h3 { 
+    width:75%;
+    font: 11pt arial;
+    font-family: sans-serif; 
+    font-style: normal; 
+    font-weight: normal; 
+    border-top: #AAA 2px solid;
+    border-bottom: #AAA 2px solid;
+}
+
+h4 { 
+    color: #0C6B9E; 
+    width:75%;
+    font: 11pt arial;
+    font-family: sans-serif; 
+    font-style: normal; 
+    font-weight: normal; 
+    border-bottom: #AAA 2px solid;
+}
+
+h5 { 
+    color: #0C6B9E; 
+    width:75%;
+    font: 11pt arial;
+    font-family: sans-serif; 
+    font-style: normal; 
+    font-weight: normal; 
+}
+
+span.h2 { 
+    background-color: #39B0A8;
+}
+
+
+a span {display: none;}
+
+/* Présentation des paragraphes normaux */
+
+.center { 
+        text-align: center;
+        }
+
+.left { 
+        text-align: left;
+        }
+
+.right { 
+        text-align: right;
+        }
+
+.top { 
+        vertical-align: top;
+        }
+
+.bottom { 
+        vertical-align: bottom;
+        }
+
+/* Présentation des itemList*/
+li { 
+        text-align: justify;
+        margin-left: 1em;
+        }
+
+div.body { position: relative;
+            top: 7em;
+            margin-left:5em;
+            width: 100%;
+        }
+
+.white {
+        color: #FFFFFF;
+        }
+
+/* Définition des liens */
+a:link, a:visited, a:active { /* normaux */
+        text-decoration: underline; 
+        }
+
+a:hover { /* normaux */
+        font-weight: bold;
+        }
+
+a.bare:link {
+    text-decoration: none
+}
+/* Partie supérieure de la page */
+div.navheader { position: absolute;
+                background: #0C6B9E; 
+                z-index:3;
+                border-bottom: inset;
+                border-width: thin; 
+                border-color: #0C6B9E;
+                width: 95% }
+
+/* Partie inférieure de la page */
+div.navfooter { position: relative; 
+                top: 7em;
+                background: #0C6B9E; 
+                border-top: outset;
+                border-width: thin; 
+                border-color: #0C6B9E;
+                margin-top: 10px;
+                width: 100% }
+
+div.hidden { display:none 
+}
+
+.standard {
+    margin: 1em;
+    width: 95%;
+            }
+
+.medium {
+    vertical-align: top;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    padding-top: 0.3em;
+    padding-bottom: 0.3em;
+}
+
+.thin {
+    vertical-align: top;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+}
+
+.w3 {
+    width: 3%;
+    min-width:2em;
+            }
+
+.w5 {
+    width: 5%;
+    min-width:3em;
+            }
+
+.w7 {
+    width: 7%;
+    min-width:4em;
+            }
+
+.w10 {
+    width: 10%;
+    min-width:7em;
+            }
+
+.w15 {
+    width: 15%;
+    min-width:10em;
+            }
+
+.w20 {
+    width: 20%;
+    min-width:15em;
+            }
+
+.w30 {
+    width: 30%;
+    min-width:20em;
+            }
+
+.w50 {
+    width: 50%;
+    min-width:25em;
+            }
+
+.data {
+    vertical-align: top;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    padding-top: 0.3em;
+    padding-bottom: 0.3em;
+    border: solid black 1px;
+}
+
+/* Présentation des tableaux */
+table {
+    border-collapse: collapse;
+    border-color: #000;
+    width: 100%;
+}
+
+.tscroll {
+  width: 94%;
+  overflow: auto; /* Utilisez auto pour les deux axes */
+  border: solid #DDD 2px;
+  height: 75%;
+}
+
+.tscroll table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.tscroll table th, .tscroll table td {
+  padding: 8px 16px;
+  border: 1px solid #999;
+}
+
+.tscroll table th {
+  background: #94C5DB;
+}
+
+.tscroll table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #94C5DB;
+}
+
+.tscroll table th:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: #94C5DB;
+}
+
+.tscroll table tr:first-child th {
+  position: sticky;
+  top: 0;
+  z-index: 3; /* Même z-index que la cellule en haut à gauche */
+  background: #94C5DB;
+}
+
+.tscroll table tr:first-child td {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #94C5DB;
+}
+
+.tscroll table tr:not(:first-child) td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #EEE;
+}
+
+.tscroll table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: #EEE;
+}
+
+.tscroll table tr:first-child th:first-child {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 4; /* z-index le plus élevé */
+  background: #94C5DB;
+}

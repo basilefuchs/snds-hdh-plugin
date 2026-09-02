@@ -1,0 +1,13 @@
+{
+  "name": "snds-hdh-marketplace",
+  "owner": {
+    "name": "Basile Fuchs"
+  },
+  "plugins": [
+    {
+      "name": "snds-hdh",
+      "source": "./",
+      "description": "Génération interactive de scripts R dplyr/dbplyr pour le SNDS via le Health Data Hub (Oracle)."
+    }
+  ]
+}

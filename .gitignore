@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Package skill web (généré par scripts/build-web-skill.ps1, non versionné)
+/dist/

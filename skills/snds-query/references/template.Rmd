@@ -1,0 +1,257 @@
+---
+title: "<titre du rapport>"
+subtitle: "<périmètre / année>"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    highlight: kate
+    gallery: true
+    lightbox: true
+    toc_depth: 3
+---
+
+<style>
+.book .book-body .page-inner {
+    max-width: 1500px;
+}
+
+h1, h2, h3, h4, h5, h6, legend {
+    color: #333399;
+}
+</style>
+
+```{r Setup, include = FALSE}
+# ==============================================================================
+# Indicateur : <titre court de l'indicateur / de la question>
+# Question   : <question en langage naturel de l'utilisateur>
+# Protocole  : <résumé 1 ligne : population, exclusions, critère de jugement>
+# Source     : <si indicateur documenté : référence biblio, DOI>          [optionnel]
+# Catégorie  : <ex. 02_casemix_patientele, 04_efficience_capacitaire>     [optionnel]
+# Fiche      : <chemin de la fiche indicateur si elle existe>             [optionnel]
+# ==============================================================================
+
+# ==== PROFIL DE BASE (mapping utilisé — profils/hdh_oracle.md) =====
+# Base       : SNDS via le Health Data Hub — Oracle, interrogé en dbplyr
+# Connexion  : dbConnect(dbDriver("Oracle"), dbname = "IPIAMPR2.WORLD")
+# Tables     : PMSI = tables suffixées par l'année de sortie (T_MCO{aa}C/B/A/D...)
+#              DCIR = tables continues (ER_PRS_F, ER_CAM_F, ER_PHA_F...)
+# Clé patient PMSI : NIR_ANO_17 — Clé patient DCIR : BEN_NIR_PSA + BEN_RNG_GEM
+# Clé patient CAUSE_DECES : BEN_NIR_ANO (3e identifiant distinct, cf. modele-donnees.md)
+# GHM (6 car) / CMD (2 car) : GRG_GHM / substr(GRG_GHM, 1, 2)
+# ==========================================
+# NB : lister ci-dessus UNIQUEMENT les éléments réellement utilisés par le script.
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, eval = TRUE, message = FALSE)
+options(knitr.kable.NA = '')
+
+# Wrapper DT::datatable : export copy/csv/excel + filtres de colonnes, à utiliser
+# pour toutes les tables affichées dans le rapport (plus lisible qu'un kable brut).
+dtttable <- function(x, n = 12) {
+  DT::datatable(
+    x,
+    extensions = "Buttons",
+    filter = "top",
+    options = list(
+      pageLength = n,
+      dom = "Bfrtip",
+      buttons = c("copy", "csv", "excel", "colvis")
+    ),
+    rownames = FALSE,
+    escape = FALSE
+  )
+}
+
+library(ROracle)
+library(dplyr)
+library(dbplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+library(scales)
+```
+
+```{r Paramètres}
+# ==== PARAMÈTRES ====
+annees     <- 2021:2024
+an         <- sprintf("%02d", annees %% 100)            # suffixe table PMSI
+codes_cim3 <- c("E10", "E11", "E12", "E13", "E14")
+
+seuil <- 11   # secret statistique : effectifs < seuil regroupés sous "Autre"
+              # à fixer selon la finalité (bloc 0 des clarifications) — pas de
+              # secret statistique nécessaire pour un dénombrement interne.
+
+DCIR_JOIN_KEY <- c(
+  "FLX_DIS_DTD", "FLX_TRT_DTD", "FLX_EMT_TYP", "FLX_EMT_NUM", "FLX_EMT_ORD",
+  "ORG_CLE_NUM", "DCT_ORD_NUM", "PRS_ORD_NUM", "REM_TYP_AFF"
+)
+
+# Connexion — profil Health Data Hub (cf. profils/hdh_oracle.md)
+.drv <- dbDriver("Oracle")
+options(connectionObserver = NULL)
+conn <- dbConnect(.drv, dbname = "IPIAMPR2.WORLD")
+Sys.setenv(TZ = "Europe/Paris")
+Sys.setenv(ORA_SDTZ = "Europe/Paris")
+```
+
+```{r Référentiels}
+# ==== RÉFÉRENTIELS (si besoin de libellés dans le rapport) ====
+# ref_etab <- tbl(conn, I(paste0("T_MCO", an[length(an)], "E"))) |>
+#   select(ETA_NUM, RS) |>
+#   distinct() |>
+#   collect()
+```
+
+```{r Extraction}
+# ==== EXTRACTION ====
+# Pattern A (par défaut) — agrégats PAR ANNÉE PMSI.
+resultat_annuel <- purrr::map2_dfr(annees, an, function(annee, an) {
+
+  mco_c <- tbl(conn, I(paste0("T_MCO", an, "C")))
+  mco_b <- tbl(conn, I(paste0("T_MCO", an, "B")))
+
+  mco_c |>
+    filter(
+      NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
+      FHO_RET == '0', PMS_RET == '0', DAT_RET == '0',
+      !ETA_NUM %in% c('130786049', '690781810', '750712184')
+    ) |>
+    inner_join(mco_b, by = c("ETA_NUM", "RSA_NUM")) |>
+    filter(
+      substr(DGN_PAL, 1, 3) %in% codes_cim3,
+      !GRG_RET %in% c('076', '077', '081', '102'),
+      substr(GRG_GHM, 1, 2) != "90"
+    ) |>
+    mutate(sejour_id = paste0(ETA_NUM, "-", RSA_NUM)) |>
+    summarise(
+      nb_sejours  = n_distinct(sejour_id),
+      nb_patients = n_distinct(NIR_ANO_17)
+    ) |>
+    collect() |>
+    mutate(annee = annee)
+})
+
+# -- Variante DCIR : critère médicamenteux (ATC) via ER_PHA_F + IR_PHA_R, ou
+# actes CCAM via ER_CAM_F (clé composite DCIR_JOIN_KEY) — cf. template.R pour
+# le détail complet ; au-delà de quelques mois de DCIR, itérer par flux mensuel
+# (FLX_DIS_DTD) avec purrr::future_map_dfr plutôt qu'une requête unique.
+```
+
+```{r Flowchart attrition}
+# ==== FLOWCHART D'ATTRITION (systématique) ====
+attrition <- purrr::map2_dfr(annees, an, function(annee, an) {
+
+  mco_c <- tbl(conn, I(paste0("T_MCO", an, "C")))
+  mco_b <- tbl(conn, I(paste0("T_MCO", an, "B")))
+
+  e1 <- mco_c |> inner_join(mco_b, by = c("ETA_NUM", "RSA_NUM")) |>
+    filter(substr(DGN_PAL, 1, 3) %in% codes_cim3)
+  e2 <- e1 |> filter(
+    NIR_RET == '0', NAI_RET == '0', SEX_RET == '0', SEJ_RET == '0',
+    FHO_RET == '0', PMS_RET == '0', DAT_RET == '0'
+  )
+  e3 <- e2 |> filter(!ETA_NUM %in% c('130786049', '690781810', '750712184'))
+  e4 <- e3 |> filter(!GRG_RET %in% c('076', '077', '081', '102'), substr(GRG_GHM, 1, 2) != "90")
+
+  purrr::imap_dfr(
+    list("1. Sejours DP cible"             = e1,
+         "2. chainage/qualite (liability)" = e2,
+         "3. hors doublons etablissement"  = e3,
+         "4. hors GHM en erreur"           = e4),
+    function(req, etape) {
+      req |> summarise(nb_sejours = n()) |> collect() |> mutate(etape = etape)
+    }
+  ) |>
+    mutate(annee = annee)
+})
+
+attrition <- attrition |>
+  group_by(annee) |>
+  mutate(pct_perdu = round(100 * (lag(nb_sejours) - nb_sejours) / lag(nb_sejours), 1)) |>
+  ungroup() |>
+  select(annee, etape, nb_sejours, pct_perdu)
+```
+
+# Méthodologie
+
+## Question et périmètre
+
+<Reformuler la question en 2-3 phrases : population, phénomène mesuré, période,
+source(s) SNDS, unité de compte.>
+
+- **Source** : SNDS via le Health Data Hub (Oracle), <champ(s) PMSI et/ou DCIR, millésime(s)>.
+- **Population** : <critères d'inclusion validés avec l'utilisateur>.
+- **Unité de compte** : <patients uniques / séjours / journées / délivrances>.
+- **Période** : <années>.
+
+<!-- Si la finalité implique une diffusion externe (bloc 0 des clarifications) :
+
+## Secret statistique
+
+Les répartitions par <dimension> appliquent un secret statistique : toute
+combinaison regroupant moins de `r seuil` <séjours/patients> est reclassée sous
+la modalité "Autre" avant ré-agrégation.
+-->
+
+## Limites connues
+
+<2-3 alertes ciblées sur ce protocole précis — cf. « Points de vigilance » du
+workflow de la skill (chaînage NIR_ANO_17/BEN_NIR_PSA/BEN_NIR_ANO selon la
+source, petits effectifs, biais de définition...). Ne rien lister qui ne
+s'applique pas.>
+
+```{r Table attrition}
+attrition |>
+  setNames(c("Année", "Étape", "Nombre de séjours", "% perdu")) |>
+  dtttable()
+```
+
+# Résultats
+
+```{r Figure principale}
+ggplot(resultat_annuel, aes(x = annee, y = nb_patients)) +
+  geom_col(fill = "#4E79A7") +
+  scale_x_continuous(breaks = annees) +
+  labs(
+    x = NULL, y = "Effectif",
+    title    = "<titre du graphique>",
+    subtitle = "<périmètre>",
+    caption  = "Source : SNDS (Health Data Hub)"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+```{r Table résultats}
+resultat_annuel |>
+  setNames(c("Nombre de séjours", "Nombre de patients", "Année")) |>
+  dtttable()
+```
+
+```{r Export}
+# ==== EXPORT (décommenter si besoin) ====
+# ⚠️ Règle SNDS : ne jamais persister en local un fichier avec des identifiants
+# potentiels — uniquement des agrégats déjà vérifiés vis-à-vis du seuil.
+# readr::write_csv(resultat_annuel, "resultat_annuel.csv")
+
+dbDisconnect(conn)
+```
+
+```{r Aide-mémoire dbplyr, eval = FALSE, include = FALSE}
+# ==============================================================================
+# Patterns dbplyr/Oracle/Rmd — rappels
+# - Tables : tbl(conn, I("NOM_TABLE")) — PMSI suffixé par année, DCIR non
+#   millésimé (pas de schéma comme sur le portail ATIH).
+# - substr(x, a, b) %in% c(...) pour les codes courts -> IN (...) côté SQL ;
+#   motifs complexes -> filter(sql("REGEXP_LIKE(col, '<regex>')")) (Oracle :
+#   REGEXP_LIKE, pas REGEXP_SIMILAR qui est spécifique Teradata).
+# - n_distinct(x) -> COUNT(DISTINCT x). Pas de clé séjour unique nativement :
+#   construire paste0(ETA_NUM, "-", RSA_NUM) avant n_distinct().
+# - collect() : jamais sur une table de séjours/prestations entière, toujours
+#   après agrégation (ou compute() pour matérialiser côté base).
+# - DCIR volumineux : filtrer par date/flux, itérer par mois avec
+#   purrr::future_map_dfr au-delà de quelques mois (1 connexion Oracle/worker).
+# - Secret statistique : seuil (`seuil`) appliqué via case_when(...) puis
+#   ré-agrégation (group_by + summarise une 2e fois).
+# - Tables interactives : dtttable() (chunk Setup) plutôt qu'un kable brut.
+# - Contrôle du SQL généré : requete |> show_query().
+# ==============================================================================
+```

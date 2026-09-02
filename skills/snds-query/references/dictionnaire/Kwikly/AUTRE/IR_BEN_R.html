@@ -1,0 +1,56 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" href="../html.css" type="text/css" />
+<link rel="Accueil" href="../index.html" />
+</head>
+<body>
+<div class="navheader" id="navheader" style="top:1px">
+  <table class="standard" summary="Navigation header">
+      <tr class="medium"> <td style="width: 30%"></td><td class="white" align="center" style="width: 30%"><a class="white" accesskey="h" href="../index.html">Accueil</a></td><td style="width: 30%"></td> </tr>
+      <tr class="medium"> <td style="width: 30%"></td><td class="white" align="center" style="width: 30%"><a class="white bare" accesskey="h" href="../AUTRE.html">Menu : Autres tables</a></td><td class="white right">Version du 19/06/2026</td> </tr>
+  </table>
+</div>
+<div class="body">
+          <h1>AUTRE - IR_BEN_R : Référentiel Bénéficiaire</h1>
+    <div class="tscroll">
+          <table class="data">
+<tr class="data"><th class="w7">variable</th><th class="w30">libellé</th><th class="w3">type</th><th class="w3">longueur</th><th class="w30">remarques</th></tr>
+
+<tr class="data"><td >ASS_NIR_ANO</td><td class="data">NIR anonyme de l'assuré</td><td class="data">char</td><td class="data right">17</td><td class="data"></td></tr>
+<tr class="data"><td >BEN_CDI_NIR</td><td class="data">Code d'identification du NIR</td><td class="data">char</td><td class="data right">2</td><td class="data"></td></tr>
+<tr class="data"><td >BEN_DCD_AME</td><td class="data">Année et mois de décès du bénéficiaire</td><td class="data">char</td><td class="data right">6</td><td class="data">La donnée n'est pas alimentée dans la table du modèle, <br/>elle ne figure que dans la vue de restitution et elle <br/>est extraite avec la commande SQL suivante : <br/>TO_CHAR(BEN_DCD_DTE ,'YYYYMM'). Valeur par défaut si donnée non valide = 1er janvier de l'an 0001</td></tr>
+<tr class="data"><td >BEN_DCD_DTE</td><td class="data">Date de décès du bénéficiaire (jour + mois + année)</td><td class="data">num</td><td class="data right">8</td><td class="data">Valeur par défaut si donnée non valide = 1er janvier de l'an 0001</td></tr>
+<tr class="data"><td >BEN_DTE_INS</td><td class="data">Date d'insertion</td><td class="data">num</td><td class="data right">8</td><td class="data">La date d’insertion est alimentée chaque fois qu’un nouveau couple {identifiant SNIIRAM "BEN_NIR_PSA" ; rang du bénéficiaire "BEN_RNG_GEM"} est chargé dans la table IR_BEN_R des consommants du SNIIRAM. Pour les lignes déjà présentes, elle est forcée au 1er janvier de l’an 1 .</td></tr>
+<tr class="data"><td >BEN_DTE_MAJ</td><td class="data">Date de mise à jour</td><td class="data">num</td><td class="data right">8</td><td class="data">La date de mise à jour est alimentée chaque fois que l’une des variables de la table IR_BEN_R des consommants du SNIIRAM est modifiée. Dans les lignes où aucune donnée n’a été modifiée, cette date est forcée au 1er janvier de l’an 1.</td></tr>
+<tr class="data"><td >BEN_IDT_ANO</td><td class="data">Identifiant bénéficiaire anonymisé</td><td class="data">char</td><td class="data right">18</td><td class="data"></td></tr>
+<tr class="data"><td >BEN_IDT_MAJ</td><td class="data">Date d'alimentation du NIR BEN_NIR_ANO</td><td class="data">num</td><td class="data right">8</td><td class="data"></td></tr>
+<tr class="data"><td >BEN_IDT_TOP</td><td class="data">Top identifiant bénéficiaire Anonymisé</td><td class="data">num</td><td class="data right">8</td><td class="data"></td></tr>
+<tr class="data"><td >BEN_NAI_ANN</td><td class="data">Année de naissance du bénéficiaire</td><td class="data">char</td><td class="data right">4</td><td class="data">L'année est extraite de la date de naissance présente dans les lignes de prestations des bénéficiaires consommants. Cette donnée concerne le bénéficiaire des soins. En cas de prestations rattachées à un identifiant SNIIRAM fictif, cette information n'a donc pas de sens.</td></tr>
+<tr class="data"><td >BEN_NAI_MOI</td><td class="data">Mois de naissance du bénéficiaire</td><td class="data">char</td><td class="data right">2</td><td class="data">Le mois est extrait de la date de naissance présente dans les lignes de prestations des bénéficiaires consommants. Il est systématiquement mis à jour à partir des nouveaux flux de consommations de soins, si il n'est pas nul. Cette donnée concerne le bénéficiaire des soins. En cas de prestations rattachées à un identifiant SNIIRAM fictif, cette information n'a donc pas de sens.</td></tr>
+<tr class="data"><td >BEN_NIR_ANO</td><td class="data">NIR anonyme du bénéficiaire</td><td class="data">char</td><td class="data right">17</td><td class="data">Pour le régime général, l’alimentation du NIR du bénéficiaire s'effectue à partir des bases de données locales des bénéficiaires (NIR certifiés commencant par 1 ou 2 ; les matricules provisoires ou fictifs sont exclus du traitement). Le NIR est crypté pour respecter l'anonymat de l'individu et restitué aux utilisateurs dans BEN_NIR_ANO (17 caractères).<br/>Cette variable est appelée NUM_ENQ_ANO pour les DEMEX et est restituée cryptée.</td></tr>
+<tr class="data"><td >BEN_NIR_PSA</td><td class="data">Identifiant anonyme du patient dans le SNIIRAM</td><td class="data">char</td><td class="data right">17</td><td class="data">L'identifiant SNIIRAM du patient est composé du triplet "NIR de l'assuré + Date de naissance du bénéficiaire + Code sexe du bénéficiaire". Ce triplet est crypté et restitué aux utilisateurs dans la variable BEN_NIR_PSA sur 17 caractères. Des identifiants SNIIRAM fictifs de patients sont parfois utilisés par les caisses, notamment en cas de prestations versées aux professionnels de santé d’une part (cas des rémunérations forfaitaires) ou de prestations pour lesquelles l’anonymat du bénéficiaire a été demandé d’autre part (cas des IVG).<br/>Cette variable est appelée NUM_ENQ pour les DEMEX et est restituée cryptée.</td></tr>
+<tr class="data"><td >BEN_RES_COM</td><td class="data">Commune de résidence du bénéficiaire</td><td class="data">char</td><td class="data right">3</td><td class="data">Rang de la commune dans son département, selon la codification géographique INSEE (ou destinataire du règlement pour quelques cas en norme NEC).</td></tr>
+<tr class="data"><td >BEN_RES_DPT</td><td class="data">Département de résidence du bénéficiaire</td><td class="data">char</td><td class="data right">3</td><td class="data">Au 11 mars 2013, le département de résidence du bénéficiaire était renseigné pour 75,3 % des lignes dans la table IR_BEN_R des consommants du SNIIRAM.</td></tr>
+<tr class="data"><td >BEN_RNG_GEM</td><td class="data">Rang du bénéficiaire</td><td class="data">num</td><td class="data right">8</td><td class="data">La règle de calcul du rang du bénéficiaire dans le SNIIRAM est la suivante :<br/>- le rang de l’ouvreur de droits est toujours égal à 1,<br/>- si un ayant droit a la même date de naissance que l’ouvreur de droits, son rang est égal à 2,<br/>- un enfant né d’une naissance unique a un rang égal à 1,<br/>- lorsqu’il y a des naissances multiples, chaque enfant est différencié par son rang (1 pour le 1er, 2 pour le second, …). Dans les faits, le rang n’est pas valorisé de la même manière pour chacun des régimes : <br/>- pour le régime général, la règle de calcul du rang dans le SNIIRAM énoncée est appliquée ;<br/>- pour le RSI, le rang est un numéro d’ordre séquentiel (ouvreur de droits = 0, 1er ayant droit = 1, 2ème ayant droit = 2, 3ème ayant droit = 3, etc…) ;<br/>- pour la MSA, le rang du bénéficiaire est propre à chaque organisme : si dans le groupe familial, lors de l’ouverture des droits à la maladie dans l’organisme, un autre individu est déjà connu avec la même date de naissance, on lui attribue un rang égal à 2, sinon le rang est égal à 1.</td></tr>
+<tr class="data"><td >BEN_SEX_COD</td><td class="data">Code sexe du bénéficiaire</td><td class="data">num</td><td class="data right">8</td><td class="data">L'information est extraite des flux de prestations des bénéficiaires consommants. Elle est systématiquement mise à jour par les nouveaux flux de consommations de soins, si elle n'est pas nulle.</td></tr>
+<tr class="data"><td >BEN_TOP_CNS</td><td class="data">top consommant - non consommant</td><td class="data">num</td><td class="data right">8</td><td class="data"></td></tr>
+<tr class="data"><td >CTO_IDT_ANO</td><td class="data">Identifiant Cartographie</td><td class="data">char</td><td class="data right">18</td><td class="data"></td></tr>
+<tr class="data"><td >IND_RNM_BEN</td><td class="data">Top RNIAM</td><td class="data">char</td><td class="data right">1</td><td class="data"></td></tr>
+<tr class="data"><td >MAX_TRT_DTD</td><td class="data">Date maximale de traitement d'une Prestations</td><td class="data">num</td><td class="data right">8</td><td class="data"></td></tr>
+<tr class="data"><td >ORG_AFF_BEN</td><td class="data">Organisme d'affiliation du bénéficiaire</td><td class="data">char</td><td class="data right">9</td><td class="data">La variable ORG_AFF_BEN dans la table IR_BEN_R des consommants du SNIIRAM était alimentée, à tort, avec le code de l’organisme qui liquide les prestations. Depuis le 28 février 2012, la donnée est correctement renseignée avec le code de l’organisme d’affiliation pour chaque nouvel individu consommant des soins qui est ajouté dans la table lors de la mise à jour mensuelle. Et pour les anciens individus déjà répertoriés dans la table, la correction s’effectue progressivement au fur et à mesure des mises à jour, dès lors que l’individu a consommé des soins.</td></tr>
+<tr class="data"><td >ORG_CLE_NEW</td><td class="data">Organisme de liquidation des prestations (après fusion)</td><td class="data">char</td><td class="data right">9</td><td class="data"></td></tr>
+<tr class="data"><td >REF_RGM_COD</td><td class="data">Code petit régime</td><td class="data">char</td><td class="data right">3</td><td class="data"></td></tr>
+<tr class="data"><td >REF_TIN_TOP</td><td class="data">Top travailleur Indépendant</td><td class="data">char</td><td class="data right">1</td><td class="data"></td></tr>
+</table>
+    </div>
+</div>
+<div class="navfooter">
+  <table class="standard" summary="Navigation footer">
+    <tr class="medium"> <td align="center"><a accesskey="h" class="white" href="../index.html">Accueil</a>&nbsp;</td> </tr>
+    <tr class="medium"> <td class="white" align="right">Version du 19/06/2026</td> </tr>
+  </table>
+</div>
+</body>
+</html>
+      
