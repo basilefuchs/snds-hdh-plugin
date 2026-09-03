@@ -50,14 +50,23 @@ document de description de la base (métadonnées), sans aucune donnée patient.
 - Les pièges classiques du SNDS, signalés ou traités d'office : **trois
   identifiants patient distincts** selon la source (PMSI = `NIR_ANO_17`, DCIR =
   `BEN_NIR_PSA` + `BEN_RNG_GEM`, causes de décès = `BEN_NIR_ANO`), qualité de
-  chaînage PMSI (`NIR_RET`/`NAI_RET`/`SEX_RET`/.../`GRG_RET`), doublons
-  APHP/APHM/HCL, GHM en erreur (CMD 90), filtres qualité DCIR
-  (`CPL_MAJ_TOP`/`DPN_QLF`), clé composite à 9 colonnes des tables DCIR,
-  `ER_GEO_LOC_R` géolocalise le professionnel de santé (`NUM_PS`) et non le
-  patient, patients uniques pluriannuels par union avant `n_distinct`.
+  chaînage PMSI (`NIR_RET`/`NAI_RET`/`SEX_RET`/`SEJ_RET`/`FHO_RET`/`PMS_RET`/`COH_SEX_RET`),
+  doublons APHP/APHM/HCL (2005-2017 uniquement), GHM en erreur (CMD 90),
+  filtres qualité DCIR (`DPN_QLF`+`PRS_DPN_QLP`, `CPL_MAJ_TOP`), clé composite
+  à 9 colonnes des tables DCIR, `ER_GEO_LOC_R` géolocalise le professionnel de
+  santé (`NUM_PS`) et non le patient, patients uniques pluriannuels par union
+  avant `n_distinct`.
 - L'existence et la disponibilité de **chaque table utilisée**, via l'index du
   dictionnaire Kwikly (`dictionnaire/index-tables.csv`) qui pointe vers la
-  page de détail correspondante (variables, millésimes couverts).
+  page de détail correspondante (variables, millésimes couverts), les tables
+  de référence `IR_BEN_R` (filtres population) et `IR_IMB_R` (ALD), et les
+  filtres PMSI HAD/RIP, validés au même titre que MCO/SSR.
+- La documentation officielle en ligne du Health Data Hub, consultée en
+  complément (via WebFetch) quand elle est disponible : elle **fait foi** sur
+  les filtres recommandés et la méthodologie, y compris en cas de
+  contradiction avec le reste de la skill. Le forum d'entraide et la
+  cartographie de l'écosystème SNDS complètent ponctuellement (dépannage,
+  définitions de cohortes déjà validées).
 
 Le script généré reste **à relire avant exécution**, comme celui d'un interne :
 la skill fiabilise la traduction question → code, elle ne remplace pas la
@@ -117,9 +126,9 @@ claude.ai avant utilisation :
   skill puisse consulter le dictionnaire Kwikly embarqué via des commandes shell) ;
 - sans outil de choix multiple équivalent à celui de Claude Code, la skill
   pose ses questions de clarification à l'écrit — répondre en langage naturel ;
-- le paquet est plus volumineux que sur pdh-atih (dictionnaire Kwikly complet,
-  plusieurs milliers de pages HTML) — vérifier la limite de taille d'upload
-  Skill du compte claude.ai avant de packager.
+- le paquet est volumineux (dictionnaire Kwikly complet, plusieurs milliers de
+  pages HTML) — vérifier la limite de taille d'upload Skill du compte
+  claude.ai avant de packager.
 
 Le zip n'est pas versionné (`dist/` est ignoré) : relancer le script après
 toute modification de `skills/snds-query/` pour repackager.
@@ -185,8 +194,8 @@ profitent.
 
 ## Mise à jour du dictionnaire (export Kwikly)
 
-Le dictionnaire n'est pas un simple CSV comme sur pdh-atih : c'est le **miroir
-HTML complet** de l'export Kwikly (une page par catégorie — DCIR, PMSI,
+Le dictionnaire n'est pas un simple CSV : c'est le **miroir HTML complet** de
+l'export Kwikly (une page par catégorie — DCIR, PMSI,
 CAUSE_DECES, CARTOGRAPHIE, VALEUR, AUTRE — et une page de détail par table,
 listant ses variables et les millésimes où elles existent).
 

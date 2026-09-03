@@ -109,10 +109,9 @@ if ($dupes) {
     Write-Warning ("Table(s) présente(s) dans plusieurs catégories : " + (($dupes | ForEach-Object { $_.Name }) -join ', '))
 }
 
-# ---- Écriture CSV (point-virgule, tout entre guillemets, comme les autres
-# fichiers dictionnaire) — UTF-8 SANS BOM explicite (Export-Csv ajoute un BOM
-# avec -Encoding UTF8 sous Windows PowerShell 5.1 ; on l'évite ici pour rester
-# cohérent avec les CSV du dictionnaire ATIH et éviter les soucis de lecture
+# ---- Écriture CSV (point-virgule, tout entre guillemets) — UTF-8 SANS BOM
+# explicite (Export-Csv ajoute un BOM avec -Encoding UTF8 sous Windows
+# PowerShell 5.1 ; on l'évite ici pour éviter les soucis de lecture
 # read.csv2()/fread() côté R).
 $header = @("categorie", "table", "libelle", "chemin") -join ';'
 $lines = New-Object System.Collections.Generic.List[string]

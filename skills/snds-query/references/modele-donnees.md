@@ -20,7 +20,7 @@ catégories :
 | CAUSE_DECES    | Cause médicale de décès (CépiDc)                     | 2         |
 | CARTOGRAPHIE   | Cartographie des pathologies (agrégats populationnels) | 5       |
 | VALEUR         | Tables de valeurs / codes (nomenclatures)             | 478       |
-| AUTRE          | Les 478 tables de VALEUR + 13 tables de référence propres, notamment `IR_BEN_R` (bénéficiaires) et `IR_PHA_R` (médicaments) | 491 |
+| AUTRE          | 13 tables de référence propres (dont `IR_BEN_R`, `IR_PHA_R`, `IR_IMB_R`), indexées sous la catégorie AUTRE ; le dossier Kwikly/AUTRE/ contient aussi une copie des 478 pages détail VALEUR (soit 491 fichiers physiques), mais celles-ci restent indexées sous VALEUR, pas AUTRE | 13 |
 
 Les tables PMSI/DCIR millésimées portent, dans Kwikly, un nom générique avec
 `AA` en guise de millésime (ex. `T_MCOAAB`) ; en base Oracle, le nom réel
@@ -56,7 +56,7 @@ Familles de tables par champ et par lettre (clé technique
 |---|---|---|---|---|
 | MCO | `T_MCO{aa}C` | `T_MCO{aa}B` | `T_MCO{aa}A` | `T_MCO{aa}D` |
 | SSR | `T_SSR{aa}C` | `T_SSR{aa}B` / `T_SSR{aa}GME` | `T_SSR{aa}CCAM`/`CSARR` | `T_SSR{aa}D` |
-| HAD | `T_HAD{aa}C`* | `T_HAD{aa}GRP` | `T_HAD{aa}A`* | `T_HAD{aa}D`* |
+| HAD | `T_HAD{aa}C` | `T_HAD{aa}GRP` | `T_HAD{aa}A`* | `T_HAD{aa}D`* |
 | RIP (psychiatrie) | `T_RIP{aa}C` | `T_RIP{aa}RSA` | `T_RIP{aa}CCAM`* | `T_RIP{aa}RSAD`* |
 
 Chaînage et filtres qualité de `T_MCO{aa}C`/`T_HAD{aa}C`/`T_RIP{aa}C` et
@@ -75,10 +75,12 @@ Diagnostics « principaux » selon le champ :
 | SSR | `FP_PEC` (finalité principale), `MOR_PRP` (manifestation morbide principale), `ETL_AFF` (affection étiologique) — table `T_SSR{aa}B` | `DGN_COD` — table `T_SSR{aa}D` |
 
 Filtres qualité PMSI standard (source : documentation officielle HDH, à
-appliquer sur la table d'en-tête/chaînage `C`, valable pour MCO/HAD/SSR/RIP) :
+appliquer sur la table d'en-tête/chaînage `C`) :
 `NIR_RET='0' AND NAI_RET='0' AND SEX_RET='0' AND SEJ_RET='0' AND FHO_RET='0'
-AND PMS_RET='0'` (depuis 2005), `+ DAT_RET='0'` (depuis 2006), `+
-COH_NAI_RET='0' AND COH_SEX_RET='0'` (depuis 2013). MCO uniquement :
+AND PMS_RET='0'` — disponible depuis 2005 pour MCO/HAD/SSR, mais seulement
+**depuis 2007 pour RIP** (exception documentée dans le profil, voir
+`profils/hdh_oracle.md` section RIP) ; `+ DAT_RET='0'` (depuis 2006), `+
+COH_NAI_RET='0' AND COH_SEX_RET='0'` (depuis 2013, tous champs). MCO uniquement :
 exclusion des transferts inter-établissements `SEJ_TYP <> 'B' OU NULL`, et
 exclusion des doublons de transmission APHP/APHM/HCL (~50 FINESS, **valable
 uniquement 2005-2017**, liste à récupérer en direct sur la fiche officielle
@@ -112,10 +114,10 @@ certificat).
   (référentiel bénéficiaire — décès, résidence, naissance), `IR_PHA_R`
   (référentiel médicament — classe ATC, CIP13/UCD) et `IR_IMB_R`
   (référentiel médicalisé — ALD, filtres validés dans `profils/hdh_oracle.md`).
-  Les 10 autres (`DA_PRA_R`, `IR_ACS_R`(+`_ARC`), `IR_ETM_R`, `IR_IBA_R`,
-  `IR_MAT_R`, `IR_MTT_R`, `IR_ORC_R`(+`_ARC`)) n'ont pas encore d'usage
-  documenté dans cet environnement — à explorer via leur page Kwikly au cas
-  par cas.
+  Les 10 autres (`DA_PRA_R`, `IR_ACS_R`(+`_ARC`), `IR_BEN_R_ARC`, `IR_ETM_R`,
+  `IR_IBA_R`, `IR_MAT_R`, `IR_MTT_R`, `IR_ORC_R`(+`_ARC`)) n'ont pas encore
+  d'usage documenté dans cet environnement — à explorer via leur page Kwikly
+  au cas par cas.
 
 ## Chaînage patient — 3 identifiants distincts, pas de clé universelle
 
@@ -160,9 +162,8 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 - Listes simples de codes : `substr(DGN_PAL, 1, 3) %in% c("E10", ...)`.
 - Motifs complexes ou multi-racines : `REGEXP_LIKE` en SQL brut via `sql()`
   (fonction Oracle) :
-  `filter(sql("REGEXP_LIKE(CDC_ACT, '^[A-Z]{3}L')"))` (exemple validé,
-  `snds-brouillon.R`) ou `filter(sql("REGEXP_LIKE(PHA_ATC_CLA, '^B01|^N06AB')"))`
-  côté pharmacie.
+  `filter(sql("REGEXP_LIKE(CDC_ACT, '^[A-Z]{3}L')"))` ou
+  `filter(sql("REGEXP_LIKE(PHA_ATC_CLA, '^B01|^N06AB')"))` côté pharmacie.
 - Le style historique `glue()` + chaîne SQL Oracle brute (`dbGetQuery(conn,
   glue(query, an = ..., table = ...))`) reste répandu dans des scripts R
   existants : à savoir reconnaître et relire si l'utilisateur colle un script
@@ -180,8 +181,8 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
    générer des dizaines de « séjours »/an ; toujours demander l'inclusion.
 3. **GHM/GME en erreur** : exclusion par défaut (`90*`).
 4. **Trois identifiants patient distincts** selon la source (`NIR_ANO_17`
-   PMSI/CAUSE_DECES-`KI_CCI_R`/`KI_ECD_R`, `BEN_NIR_PSA`+`BEN_RNG_GEM` DCIR,
-   `BEN_NIR_ANO` CAUSE_DECES) — pas de table de passage directe ; le
+   PMSI, `BEN_NIR_PSA`+`BEN_RNG_GEM` DCIR, `BEN_NIR_ANO` CAUSE_DECES —
+   `KI_CCI_R`/`KI_ECD_R` inclus) — pas de table de passage directe ; le
    chaînage inter-source est une étape de protocole à part entière, pas une
    jointure anodine.
 5. **`DPN_QLF`/`PRS_DPN_QLP`/filtres qualité DCIR sur colonnes potentiellement

@@ -22,8 +22,9 @@
 #   distingue pas les ayants droit d'un même NIR). NIR_ANO_17 et BEN_NIR_PSA
 #   sont directement comparables (même NIR crypté) pour le chaînage PMSI <-> DCIR.
 # Clé de chaînage CAUSE_DECES  : BEN_NIR_ANO — 3e identifiant, DISTINCT des deux
-#   précédents (pas de comparaison directe) : voir modele-donnees.md pour la
-#   table de passage avant tout chaînage MCO/DCIR <-> causes de décès.
+#   précédents (pas de comparaison directe, pas de table de passage fournie) :
+#   voir modele-donnees.md, section « Chaînage patient », avant tout
+#   rapprochement MCO/DCIR <-> causes de décès (étape de protocole à part entière).
 # GHM (6 car) / CMD (2 car)    : GRG_GHM / substr(GRG_GHM, 1, 2)
 # Géo. résidence patient (DCIR): BEN_RES_COM / BEN_RES_DPT (sur ER_PRS_F)
 # Géo. professionnel de santé  : ER_GEO_LOC_R (PAS ER_GEO_LOC_F), clé NUM_PS —
@@ -98,7 +99,6 @@ resultat_annuel <- purrr::map2_dfr(annees, an, function(annee, an) {
     filter(
       substr(DGN_PAL, 1, 3) %in% codes_cim3,          # inclusion : position du diagnostic
       #   variante DP ou DR : | substr(DGN_REL, 1, 3) %in% codes_cim3
-      !GRG_RET %in% c('076', '077', '081', '102'),     # groupage en erreur
       substr(GRG_GHM, 1, 2) != "90"                    # séjours en erreur (CMD 90)
     ) |>
     mutate(sejour_id = paste0(ETA_NUM, "-", RSA_NUM)) |>
@@ -127,7 +127,6 @@ requete_annee <- function(an) {
     inner_join(mco_b, by = c("ETA_NUM", "RSA_NUM")) |>
     filter(
       substr(DGN_PAL, 1, 3) %in% codes_cim3,
-      !GRG_RET %in% c('076', '077', '081', '102'),
       substr(GRG_GHM, 1, 2) != "90"
     ) |>
     select(NIR_ANO_17)
@@ -177,8 +176,7 @@ nb_patients_periode <- an |>
 #   inner_join(cip_cible, by = c("PHA_PRS_C13" = "PHA_CIP_C13")) |>
 #   transmute(anonyme = BEN_NIR_PSA, rang = BEN_RNG_GEM, dte_exe = EXE_SOI_DTD)
 # NB volumétrie DCIR : au-delà de quelques mois, préférer itérer par flux mensuel
-# (FLX_DIS_DTD) avec purrr::future_map_dfr — cf. snds-brouillon.R pour
-# l'idiome complet (une connexion Oracle par worker).
+# (FLX_DIS_DTD) avec purrr::future_map_dfr, une connexion Oracle par worker.
 
 # -- Variante : motif CIM-10 complexe (Oracle REGEXP_LIKE, pas REGEXP_SIMILAR) --
 # filter(sql("REGEXP_LIKE(DGN_PAL, '^(F0[0-3]|G30|A810|B220)')"))
@@ -222,7 +220,7 @@ attrition <- purrr::map2_dfr(annees, an, function(annee, an) {
     COH_NAI_RET == '0', COH_SEX_RET == '0'                # depuis 2013 seulement
   )
   e3 <- e2 |> filter(SEJ_TYP != 'B' | is.na(SEJ_TYP))      # hors transferts inter-établissements
-  e4 <- e3 |> filter(!GRG_RET %in% c('076', '077', '081', '102'), substr(GRG_GHM, 1, 2) != "90")
+  e4 <- e3 |> filter(substr(GRG_GHM, 1, 2) != "90")         # hors GHM en erreur (CMD 90)
 
   purrr::imap_dfr(
     list("1. Sejours DP cible"            = e1,
@@ -279,7 +277,7 @@ dbDisconnect(conn)
 # - DCIR volumineux et non millésimé : filtrer par date (EXE_SOI_DTD) ou par
 #   flux mensuel (FLX_DIS_DTD) plutôt que de tout rapatrier ; au-delà de
 #   quelques mois, itérer par flux avec purrr::future_map_dfr (une connexion
-#   Oracle PAR WORKER, cf. snds-brouillon.R).
+#   Oracle PAR WORKER).
 # - Trois identifiants patient DISTINCTS selon la source (PMSI: NIR_ANO_17,
 #   DCIR: BEN_NIR_PSA+BEN_RNG_GEM, CAUSE_DECES: BEN_NIR_ANO) — vérifier
 #   modele-donnees.md avant tout chaînage inter-sources.

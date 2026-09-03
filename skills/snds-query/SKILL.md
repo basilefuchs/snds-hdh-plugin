@@ -142,9 +142,11 @@ trancher seul.
 
 Le dictionnaire SNDS est l'export HTML « Kwikly » : 6 catégories (DCIR — 17
 tables, PMSI — 189 tables, CAUSE_DECES — 2 tables, CARTOGRAPHIE — 5 tables,
-VALEUR — 478 tables de valeurs/codes, AUTRE — 491 tables dont les 478 de
-VALEUR plus 13 tables de référence propres : notamment `IR_BEN_R`
-(référentiel bénéficiaire) et `IR_PHA_R` (référentiel médicament)). Il n'y a
+VALEUR — 478 tables de valeurs/codes, AUTRE — 13 tables de référence propres
+indexées sous cette catégorie, notamment `IR_BEN_R` (référentiel
+bénéficiaire) et `IR_PHA_R` (référentiel médicament) ; le dossier
+Kwikly/AUTRE/ contient aussi une copie des 478 pages détail VALEUR, mais
+celles-ci restent indexées sous VALEUR, pas AUTRE). Il n'y a
 pas de CSV variable-par-variable exhaustif : la recherche se fait en **deux
 niveaux**.
 

@@ -326,7 +326,7 @@ demande explicite.
 | `DPN_QLF`/`PRS_DPN_QLP` potentiellement `NULL` | `filter((is.na(DPN_QLF) | !DPN_QLF %in% c(71,72)) & (is.na(PRS_DPN_QLP) | !PRS_DPN_QLP %in% c(71,72)))` — un simple `DPN_QLF != 71` exclut silencieusement les lignes `NULL` en SQL Oracle (logique ternaire), et laisse passer le code 72 ainsi que les doublons visibles seulement sur `PRS_DPN_QLP` |
 | `ORDER BY` sur colonne contenant des `NULL` (Oracle) | Oracle trie les `NULL` en dernier (SAS les traite comme valeur minimale) — éviter de trier côté Oracle sur une colonne à `NULL`, reporter le tri après `collect()` |
 | Colonnes annuelles DCIR limitées à 2012 dans Kwikly (`*` ensuite) | Ne pas conclure à une absence/présence sur un périmètre < 2013 sans vérification empirique |
-| 3 identifiants patient différents selon la source | `NIR_ANO_17` (PMSI, `KI_CCI_R`/`KI_ECD_R`) ≠ `BEN_NIR_PSA`+`BEN_RNG_GEM` (DCIR) ≠ `BEN_NIR_ANO` (CAUSE_DECES) — aucune table de passage directe dans cet export ; valider le chaînage avant tout croisement inter-source |
+| 3 identifiants patient différents selon la source | `NIR_ANO_17` (PMSI) ≠ `BEN_NIR_PSA`+`BEN_RNG_GEM` (DCIR) ≠ `BEN_NIR_ANO` (CAUSE_DECES : `KI_CCI_R`/`KI_ECD_R`) — aucune table de passage directe dans cet export ; valider le chaînage avant tout croisement inter-source |
 | `BEN_DCD_DTE`/`BEN_DCD_AME` — valeur sentinelle | `01-01-1600` (resp. `160001`) = patient encore considéré comme vivant ; toute autre date = date de décès |
 | Doublons de transmission APHP/APHM/HCL          | Uniquement pertinent pour les séjours **2005-2017** (remontées corrigées depuis) ; liste complète (~50 FINESS) à récupérer en direct sur la fiche officielle (voir « Documentation officielle en ligne » ci-dessus), pas codée en dur ici |
 | `EXT_PMSI` absent avant 2015 (actes CCAM MCO)      | Adapter la requête au millésime (2 formes de requête selon année < 15 ou ≥ 15) |
@@ -340,7 +340,7 @@ demande explicite.
 |----------------------------------------|------------------------------------------------------------------|
 | Connexion                              | `dbConnect(dbDriver("Oracle"), dbname = "IPIAMPR2.WORLD")`      |
 | Fuseau                                 | `TZ = "Europe/Paris"`, `ORA_SDTZ = "Europe/Paris"`               |
-| Seuil de diffusion (secret statistique) | 11 (`SEUIL`, cf. `snds-brouillon.R`)                             |
+| Seuil de diffusion (secret statistique) | 11 (`SEUIL`), convention usuelle sur les extractions SNDS        |
 | Filtres qualité PMSI par défaut         | `NIR_RET`/`NAI_RET`/`SEX_RET`/`SEJ_RET`/`FHO_RET`/`PMS_RET` = `'0'` (depuis 2005), `+ DAT_RET = '0'` (depuis 2006), `+ COH_NAI_RET`/`COH_SEX_RET` = `'0'` (depuis 2013) |
 | Exclusion transferts inter-établissements (MCO) | `SEJ_TYP <> 'B' OR SEJ_TYP IS NULL` |
 | Exclusion doublons de transmission (MCO, 2005-2017 uniquement) | Liste de ~50 FINESS APHP/APHM/HCL — à récupérer en direct sur la fiche officielle (voir ci-dessus), non codée en dur |

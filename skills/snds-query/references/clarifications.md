@@ -108,7 +108,8 @@ du protocole).
     officielle plutôt que codée en dur (voir `profils/hdh_oracle.md`).
 11. **Chaînage en erreur / qualité** : côté PMSI, codes retour de contrôle
     (`NIR_RET`, `NAI_RET`, `SEX_RET`, `SEJ_RET`, `FHO_RET`, `PMS_RET` depuis
-    2005, `COH_NAI_RET`/`COH_SEX_RET` depuis 2013) différents de `'0'` — à
+    2005, `DAT_RET` depuis 2006, `COH_NAI_RET`/`COH_SEX_RET` depuis 2013)
+    différents de `'0'` — à
     exclure si comptage de patients uniques, signaler la perte. Côté DCIR,
     `DPN_QLF NOT IN (71,72)` et `PRS_DPN_QLP NOT IN (71,72)` (en gérant les
     `NULL`).
