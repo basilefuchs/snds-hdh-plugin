@@ -57,6 +57,17 @@ DCIR peut être associé à plusieurs identifiants pivots dans `IR_BEN_R`.
 Quantifier et signaler la perte ou l'ambiguïté de chaînage plutôt que de la
 passer sous silence.
 
+## Délai de remontée DCIR (`FLX_DIS_DTD` vs `EXE_SOI_DTD`)
+
+Toute extraction `ER_PRS_F` batchée par flux technique (`FLX_DIS_DTD`, voir
+`modele-donnees.md` piège n°11 et `template.R` Pattern C) risque de perdre
+les prestations de fin de période remontées en retard si la boucle de flux
+s'arrête pile à la fin de la période clinique demandée (`EXE_SOI_DTD`). Pas
+de marge par défaut fiable codée dans cette skill : vérifier via la
+documentation officielle HDH (WebFetch) le délai de stabilisation à prévoir
+avant de fixer la borne de flux ; si WebFetch est indisponible, le signaler
+explicitement à l'utilisateur plutôt que d'appliquer une marge non vérifiée.
+
 ## Confidentialité — non-persistance locale
 
 **Ne jamais enregistrer localement un extrait SNDS contenant un identifiant,

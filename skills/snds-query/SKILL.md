@@ -312,13 +312,23 @@ communes aux deux formats :
   génération par défaut.
 - Boucle par millésime (`purrr::map_dfr` / `furrr::future_map_dfr`) pour les
   tables PMSI/DCIR annualisées, avec reconstruction du nom de table réel
-  (`paste0("T_MCO", aa, "B")`) à partir du nom générique Kwikly.
+  (`paste0("T_MCO", aa, "B")`) à partir du nom générique Kwikly. Cas distinct :
+  toute requête touchant `ER_PRS_F` (et tables jointes) au-delà de quelques
+  mois doit batcher sur `FLX_DIS_DTD` (voir `modele-donnees.md`, piège n°11,
+  et `template.R` Pattern C) — ce n'est pas un millésime de table mais une
+  date de flux à l'intérieur d'une table non millésimée.
 - Filtres qualité systématiques du profil appliqués (voir `points-de-vigilance.md`
   et `modele-donnees.md`), et **jamais de `collect()`** avant l'agrégation
-  finale — le calcul reste côté Oracle. Si le protocole porte sur des séjours
-  MCO 2005-2017 et que WebFetch est disponible, récupérer la liste à jour des
-  FINESS APHP/APHM/HCL sur la documentation officielle (ressource 2) plutôt
-  que d'en improviser une.
+  finale — le calcul reste côté Oracle — **sauf pour le pattern de batching
+  volumétrique DCIR sur `ER_PRS_F`** (Pattern C de `template.R`), où un
+  `collect()` par batch de flux est inévitable avant l'empilement final en R.
+  Si le protocole porte sur des séjours MCO 2005-2017 et que WebFetch est
+  disponible, récupérer la liste à jour des FINESS APHP/APHM/HCL sur la
+  documentation officielle (ressource 2) plutôt que d'en improviser une. De
+  même, pour toute extraction batchée sur `ER_PRS_F`, consulter la
+  documentation officielle (WebFetch) pour la marge de flux à appliquer après
+  la période clinique demandée (voir `points-de-vigilance.md`) plutôt que
+  d'en fixer une par défaut.
 - Rappel dans le script (commentaire) de la nécessité de `%m_stats_table()`
   (SAS) après toute création de table jointe destinée à être réutilisée.
 - En-tête de script normalisé : bloc titre (indicateur, question, protocole)

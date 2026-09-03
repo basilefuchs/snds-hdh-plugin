@@ -210,6 +210,20 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 10. **Indexation après jointure** : toute table créée par jointure et
     destinée à être réutilisée doit être indexée via `%m_stats_table()`
     (SAS) — sinon jointures suivantes très lentes.
+11. **Volumétrie de `ER_PRS_F`** : cette table (et celles jointes dessus —
+    `ER_PHA_F`, `ER_CAM_F`...) est trop volumineuse pour être interrogée en
+    une seule requête au-delà de quelques mois. Batcher systématiquement sur
+    `FLX_DIS_DTD` (date de flux technique, un batch par mois), en filtrant
+    les DEUX côtés de la jointure sur ce même `FLX_DIS_DTD` avant de joindre
+    sur la clé composite à 9 colonnes. Piège associé : `FLX_DIS_DTD`
+    (date de remontée) n'est **pas** `EXE_SOI_DTD` (date de soin réelle) —
+    une prestation de fin de période clinique demandée peut être remontée
+    dans un flux ultérieur. La boucle de flux doit donc courir jusqu'à la
+    fin de la période clinique **plus une marge**, chaque batch filtrant
+    ensuite précisément sur `EXE_SOI_DTD` pour ne garder que la période
+    demandée — voir `points-de-vigilance.md` pour cette marge (pas de valeur
+    par défaut chiffrée : à vérifier via la documentation officielle HDH à
+    chaque génération). Pattern de code validé : `template.R`, Pattern C.
 
 ## Comment utiliser le dictionnaire Kwikly (recherche en deux niveaux)
 

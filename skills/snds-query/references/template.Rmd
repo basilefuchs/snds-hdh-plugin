@@ -134,9 +134,11 @@ resultat_annuel <- purrr::map2_dfr(annees, an, function(annee, an) {
 })
 
 # -- Variante DCIR : critère médicamenteux (ATC) via ER_PHA_F + IR_PHA_R, ou
-# actes CCAM via ER_CAM_F (clé composite DCIR_JOIN_KEY) — cf. template.R pour
-# le détail complet ; au-delà de quelques mois de DCIR, itérer par flux mensuel
-# (FLX_DIS_DTD) avec purrr::future_map_dfr plutôt qu'une requête unique.
+# actes CCAM via ER_CAM_F (clé composite DCIR_JOIN_KEY) — cf. template.R
+# Pattern C pour le détail complet ; ER_PRS_F est trop volumineuse au-delà de
+# quelques mois (modele-donnees.md, piège n°11) : itérer par flux mensuel
+# (FLX_DIS_DTD) avec furrr::future_map_dfr, en gardant une marge après la
+# période clinique (FLX_DIS_DTD != EXE_SOI_DTD, cf. points-de-vigilance.md).
 ```
 
 ```{r Flowchart attrition}
@@ -250,9 +252,11 @@ dbDisconnect(conn)
 # - n_distinct(x) -> COUNT(DISTINCT x). Pas de clé séjour unique nativement :
 #   construire paste0(ETA_NUM, "-", RSA_NUM) avant n_distinct().
 # - collect() : jamais sur une table de séjours/prestations entière, toujours
-#   après agrégation (ou compute() pour matérialiser côté base).
-# - DCIR volumineux : filtrer par date/flux, itérer par mois avec
-#   purrr::future_map_dfr au-delà de quelques mois (1 connexion Oracle/worker).
+#   après agrégation (ou compute() pour matérialiser côté base) — sauf
+#   batching volumétrique DCIR ci-dessous (collect() par batch, cf. SKILL.md).
+# - ER_PRS_F volumineux : filtrer par date/flux, itérer par mois avec
+#   furrr::future_map_dfr au-delà de quelques mois (1 connexion Oracle/worker,
+#   voir template.R Pattern C et modele-donnees.md piège n°11).
 # - Secret statistique : seuil (`seuil`) appliqué via case_when(...) puis
 #   ré-agrégation (group_by + summarise une 2e fois).
 # - Tables interactives : dtttable() (chunk Setup) plutôt qu'un kable brut.

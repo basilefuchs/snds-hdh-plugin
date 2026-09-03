@@ -175,8 +175,69 @@ nb_patients_periode <- an |>
 #   inner_join(tbl(conn, I("ER_PHA_F")), by = DCIR_JOIN_KEY) |>
 #   inner_join(cip_cible, by = c("PHA_PRS_C13" = "PHA_CIP_C13")) |>
 #   transmute(anonyme = BEN_NIR_PSA, rang = BEN_RNG_GEM, dte_exe = EXE_SOI_DTD)
-# NB volumétrie DCIR : au-delà de quelques mois, préférer itérer par flux mensuel
-# (FLX_DIS_DTD) avec purrr::future_map_dfr, une connexion Oracle par worker.
+# ATTENTION : la forme ci-dessus ne doit PAS être exécutée telle quelle au-delà
+# de quelques mois — ER_PRS_F est trop volumineuse (voir modele-donnees.md,
+# piège n°11). Batcher sur FLX_DIS_DTD : voir Pattern C ci-dessous.
+
+# -- Pattern C — extraction DCIR volumineuse (ER_PRS_F) : itération par flux --
+# mensuel (FLX_DIS_DTD). Reprend la variante médicamenteuse ci-dessus, batchée.
+#
+# FLX_DIS_DTD (date de flux technique) != EXE_SOI_DTD (date de soin réelle) :
+# une prestation de fin de période peut être remontée dans un flux ultérieur.
+# La boucle de flux doit donc courir jusqu'à la fin de la période clinique
+# PLUS UNE MARGE (à vérifier via la documentation officielle HDH — WebFetch —
+# à chaque génération, PAS de valeur par défaut fiable codée ici ; si WebFetch
+# indisponible, le signaler à l'utilisateur), chaque batch filtrant ensuite
+# précisément sur EXE_SOI_DTD. Voir points-de-vigilance.md.
+#
+# date_debut  <- as.Date("2020-01-01")   # début période clinique demandée
+# date_fin    <- as.Date("2023-12-31")   # fin période clinique demandée
+# marge_flux  <- <n>                     # mois -- valeur À VÉRIFIER (WebFetch), pas de défaut
+#
+# flux_max      <- seq.Date(date_fin, by = "month", length.out = marge_flux + 1) |> tail(1)
+# flux_mensuels <- seq.Date(date_debut, flux_max, by = "month") |> format("%Y%m%d")
+#
+# cip_cible <- tbl(conn, I("IR_PHA_R")) |>                 # référentiel produit, petit volume
+#   filter(sql("REGEXP_LIKE(PHA_ATC_CLA, '^N06AB')")) |>
+#   filter(!is.na(PHA_CIP_C13)) |>
+#   distinct(PHA_CIP_C13) |>
+#   collect() |>                                            # collecté UNE fois, hors boucle
+#   pull(PHA_CIP_C13)
+#
+# extraction_batch <- function(flx) {
+#   # Connexion PROPRE à ce batch : indispensable avec furrr (workers = process R séparés)
+#   .drv <- dbDriver("Oracle")
+#   options(connectionObserver = NULL)
+#   conn_batch <- dbConnect(.drv, dbname = "IPIAMPR2.WORLD")
+#   Sys.setenv(TZ = "Europe/Paris"); Sys.setenv(ORA_SDTZ = "Europe/Paris")
+#   on.exit(dbDisconnect(conn_batch))
+#
+#   prs <- tbl(conn_batch, I("ER_PRS_F")) |>
+#     filter(
+#       FLX_DIS_DTD == flx,                                 # même filtre de flux des 2 côtés de la jointure
+#       (is.na(DPN_QLF) | !DPN_QLF %in% c(71, 72)),
+#       (is.na(PRS_DPN_QLP) | !PRS_DPN_QLP %in% c(71, 72)),  # filtres qualité DCIR (NULL = OK)
+#       EXE_SOI_DTD >= date_debut, EXE_SOI_DTD <= date_fin   # période CLINIQUE, appliquée DANS le batch de flux
+#     )
+#   pha <- tbl(conn_batch, I("ER_PHA_F")) |>
+#     filter(FLX_DIS_DTD == flx)
+#
+#   prs |>
+#     inner_join(pha, by = DCIR_JOIN_KEY) |>
+#     filter(PHA_PRS_C13 %in% cip_cible) |>                 # petite liste -> IN() ; sinon copy_to() + semi_join
+#     transmute(anonyme = BEN_NIR_PSA, rang = BEN_RNG_GEM, dte_exe = EXE_SOI_DTD, cip = PHA_PRS_C13) |>
+#     collect()                                              # collect PAR BATCH : exception documentée à la
+#                                                             # règle "jamais de collect() avant agrégation
+#                                                             # finale" (SKILL.md § 5) -- itération sur
+#                                                             # plusieurs connexions, impossible à garder lazy
+# }
+#
+# future::plan(future::multisession(workers = 4))            # cf. profils/hdh_oracle.md, "Défauts recommandés"
+# delivrances <- furrr::future_map_dfr(
+#   flux_mensuels,
+#   ~ extraction_batch(as.Date(.x, "%Y%m%d")),
+#   .progress = TRUE
+# )   # extrait ligne à ligne -- agréger/dédupliquer ensuite selon le protocole
 
 # -- Variante : motif CIM-10 complexe (Oracle REGEXP_LIKE, pas REGEXP_SIMILAR) --
 # filter(sql("REGEXP_LIKE(DGN_PAL, '^(F0[0-3]|G30|A810|B220)')"))
@@ -276,8 +337,11 @@ dbDisconnect(conn)
 #   après agrégation.
 # - DCIR volumineux et non millésimé : filtrer par date (EXE_SOI_DTD) ou par
 #   flux mensuel (FLX_DIS_DTD) plutôt que de tout rapatrier ; au-delà de
-#   quelques mois, itérer par flux avec purrr::future_map_dfr (une connexion
-#   Oracle PAR WORKER).
+#   quelques mois sur ER_PRS_F, itérer par flux avec furrr::future_map_dfr
+#   (une connexion Oracle PAR WORKER) — voir Pattern C ci-dessus et
+#   modele-donnees.md piège n°11. FLX_DIS_DTD != EXE_SOI_DTD : prévoir une
+#   marge de flux après la période clinique (voir points-de-vigilance.md),
+#   et un collect() PAR BATCH (exception à la règle générale ci-dessous).
 # - Trois identifiants patient DISTINCTS selon la source (PMSI: NIR_ANO_17,
 #   DCIR: BEN_NIR_PSA+BEN_RNG_GEM, CAUSE_DECES: BEN_NIR_ANO) — vérifier
 #   modele-donnees.md avant tout chaînage inter-sources.
