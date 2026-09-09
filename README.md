@@ -170,17 +170,7 @@ skills/snds-query/
     ├── points-de-vigilance.md      # registres de risques méthodologiques (biais, instabilité...)
     ├── template.R                  # squelette de script R, patterns dbplyr/Oracle
     └── template.Rmd                # squelette de rapport R Markdown (même patterns)
-skills/grill-me/SKILL.md            # skill annexe, générique (voir ci-dessous)
 ```
-
-## Skill annexe : grill-me
-
-`skills/grill-me/` est une skill générique, sans lien avec le SNDS : elle
-interroge l'utilisateur point par point sur un plan (architecture, modèle de
-données, cas limites…) jusqu'à un accord explicite sur chaque branche, avant
-toute implémentation. Utile pour cadrer une évolution de ce plugin (nouvelle
-source SNDS, nouveau profil d'environnement) avant de s'y lancer. Se déclenche
-via le nom de la skill (`/grill-me`) ou automatiquement sur un plan ambigu.
 
 ## Adapter à un autre environnement que le Health Data Hub
 
