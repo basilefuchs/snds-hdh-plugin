@@ -84,17 +84,85 @@ validation métier ni le respect du secret statistique sur les sorties.
 
 ## Installation
 
-### Option A — plugin (recommandé pour une équipe de DIM)
+### Option A — plugin Claude Code depuis le dépôt Git (recommandé pour une équipe de DIM)
 
-Publier ce dossier comme dépôt Git (GitHub/GitLab), puis dans Claude Code :
+Le dépôt [basilefuchs/snds-hdh-plugin](https://github.com/basilefuchs/snds-hdh-plugin)
+est à la fois une *marketplace* Claude Code (`snds-hdh-marketplace`, déclarée
+dans `.claude-plugin/marketplace.json`) et le plugin qu'elle distribue
+(`snds-hdh`). Le dépôt étant public, aucun identifiant n'est nécessaire.
+
+1. **Ouvrir Claude Code** (terminal : `claude` ; ou application desktop / IDE).
+2. **Déclarer le dépôt comme marketplace** :
+   ```
+   /plugin marketplace add basilefuchs/snds-hdh-plugin
+   ```
+   Variantes :
+   - URL complète : `/plugin marketplace add https://github.com/basilefuchs/snds-hdh-plugin.git`
+   - branche ou tag précis : `/plugin marketplace add https://github.com/basilefuchs/snds-hdh-plugin.git#main`
+   - clone local (poste sans accès GitHub, test d'une modification) :
+     `git clone https://github.com/basilefuchs/snds-hdh-plugin.git` puis
+     `/plugin marketplace add ./snds-hdh-plugin`
+3. **Installer le plugin** :
+   ```
+   /plugin install snds-hdh@snds-hdh-marketplace
+   ```
+   Claude Code demande la portée de l'installation :
+   - **user** : pour vous, dans tous vos projets ;
+   - **project** : pour tous les collaborateurs du projet courant (écrit dans
+     `.claude/settings.json`, à committer) ;
+   - **local** : pour vous seul, dans le projet courant.
+4. **Activer** : fermer le menu `/plugin` suffit (Claude Code exécute alors
+   `/reload-plugins`) ; sinon, taper `/reload-plugins`. Aucun redémarrage n'est
+   nécessaire.
+5. **Vérifier** : `/plugin` → onglet **Installed** doit lister `snds-hdh` ;
+   taper `/snds-hdh:` doit proposer `/snds-hdh:snds-hdh` (raccourci) et
+   `/snds-hdh:snds-query` (skill).
+
+Équivalent en ligne de commande, pour scripter l'installation d'un poste :
 
 ```
-/plugin marketplace add basilefuchs/snds-hdh-plugin
-/plugin install snds-hdh@snds-hdh-marketplace
+claude plugin marketplace add basilefuchs/snds-hdh-plugin
+claude plugin install snds-hdh@snds-hdh-marketplace --scope user
 ```
 
-Les mises à jour (dictionnaire, profils, nouveaux patterns validés) se diffusent
-ensuite à toute l'équipe via le dépôt.
+**Mettre à jour** (dictionnaire, profils, nouveaux patterns validés) :
+
+```
+/plugin marketplace update snds-hdh-marketplace
+/reload-plugins
+```
+
+`.claude-plugin/plugin.json` déclarant un champ `version`, Claude Code ne
+propose une nouvelle version que si ce numéro change : l'incrémenter à chaque
+livraison, sinon les postes déjà installés ne reçoivent pas les modifications.
+
+**Désinstaller** : `/plugin uninstall snds-hdh@snds-hdh-marketplace` ; retirer
+la marketplace : `/plugin marketplace remove snds-hdh-marketplace` (désinstalle
+aussi le plugin).
+
+**Déployer pour toute une équipe** : dans le dépôt de projet partagé par
+l'équipe, ajouter à `.claude/settings.json` puis committer :
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "snds-hdh-marketplace": {
+      "source": { "source": "github", "repo": "basilefuchs/snds-hdh-plugin" }
+    }
+  },
+  "enabledPlugins": {
+    "snds-hdh@snds-hdh-marketplace": true
+  }
+}
+```
+
+Chaque membre qui ouvre ce projet dans Claude Code (et accorde sa confiance au
+dossier) se voit proposer la marketplace et le plugin, sans étape manuelle.
+
+**Fork privé** (ex. dépôt interne au DIM) : Claude Code réutilise les
+identifiants git du poste (`gh auth setup-git`, clé SSH) ; pour que les mises à
+jour automatiques en arrière-plan fonctionnent, définir aussi la variable
+d'environnement `GITHUB_TOKEN`.
 
 ### Option B — skill personnelle
 
@@ -139,9 +207,12 @@ toute modification de `skills/snds-query/` pour repackager.
 Poser une question SNDS en langage naturel — la skill se déclenche d'elle-même —
 ou l'invoquer explicitement :
 
-- installée en **plugin** (option A, Claude Code) : `/snds-hdh <question>` ;
+- installée en **plugin** (option A, Claude Code) : `/snds-hdh:snds-hdh <question>`
+  (les commandes et skills d'un plugin sont toujours préfixées par le nom du
+  plugin ; la skill seule : `/snds-hdh:snds-query`) ;
 - installée en **skill** dans Claude Code (options B et C) : `/snds-query <question>`
-  (le raccourci `/snds-hdh` fait partie du plugin et n'est pas copié avec la skill) ;
+  (le raccourci `/snds-hdh:snds-hdh` fait partie du plugin et n'est pas copié
+  avec la skill) ;
 - installée en **skill web** (option D, claude.ai) : pas d'invocation par
   commande vérifiée — poser directement la question, la skill se déclenche sur
   sa description.
@@ -155,7 +226,7 @@ Exemples de questions :
 ## Structure du dépôt
 
 ```
-commands/snds-hdh.md                # raccourci /snds-hdh (installation plugin uniquement)
+commands/snds-hdh.md                # raccourci /snds-hdh:snds-hdh (installation plugin uniquement)
 scripts/build-web-skill.ps1         # packaging skill web (option D) : skills/snds-query/ -> dist/snds-query.zip
 scripts/build-kwikly-index.ps1      # régénère dictionnaire/index-tables.csv depuis l'export Kwikly
 skills/snds-query/
@@ -202,6 +273,9 @@ listant ses variables et les millésimes où elles existent).
    tout le miroir HTML. Le script est **idempotent** : à relancer à chaque
    rafraîchissement de l'export (date affichée en pied de page des pages
    Kwikly, ex. « Version du 19/06/2026 »).
+3. Incrémenter `version` dans `.claude-plugin/plugin.json` avant de pousser,
+   pour que les installations existantes reçoivent la mise à jour (voir
+   Option A, « Mettre à jour »).
 
 ## Licence
 
