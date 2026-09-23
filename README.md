@@ -35,8 +35,9 @@ protocole validé, puis script.
 
 Vous exécutez le script vous-même sur l'environnement du Health Data Hub :
 **Claude n'accède jamais aux données** — il ne voit que la question, le
-protocole et le code généré. Le dictionnaire embarqué (export Kwikly) est le
-document de description de la base (métadonnées), sans aucune donnée patient.
+protocole et le code généré. Le dictionnaire embarqué (export Kwikly,
+propriété de la CNAM — voir [Licence](#licence)) est le document de
+description de la base (métadonnées), sans aucune donnée patient.
 
 ## Ce que la skill sait (et vérifie)
 
@@ -190,7 +191,7 @@ CAUSE_DECES, CARTOGRAPHIE, VALEUR, AUTRE — et une page de détail par table,
 listant ses variables et les millésimes où elles existent).
 
 1. Remplacer le contenu de `skills/snds-query/references/dictionnaire/Kwikly/`
-   par le nouvel export Kwikly du Health Data Hub, en conservant la même
+   par le nouvel export Kwikly de la CNAM, en conservant la même
    arborescence (les 6 pages de catégorie + leurs sous-dossiers par table).
 2. Régénérer l'index plat des tables :
    ```
@@ -204,4 +205,16 @@ listant ses variables et les millésimes où elles existent).
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+Le code et le contenu propres au plugin (skill, références, templates,
+scripts) sont sous licence MIT, © 2026 Basile Fuchs et CHU de Brest — voir
+[LICENSE](LICENSE) et [NOTICE](NOTICE).
+
+**Le dictionnaire des données du SNDS n'est pas couvert par cette licence.**
+L'export Kwikly (`skills/snds-query/references/dictionnaire/Kwikly/`, logos
+compris), l'index qui en est dérivé (`dictionnaire/index-tables.csv`) et les
+versions JSON de ce dictionnaire (exports CNAM ou conversions locales au format
+pivot [CHU-Brest/kwikly-json](https://github.com/CHU-Brest/kwikly-json)) sont
+la propriété de la Caisse nationale de l'Assurance Maladie (CNAM). Leur
+réutilisation et leur redistribution relèvent des conditions fixées par la
+CNAM, y compris lorsqu'ils sont diffusés avec ce plugin (dépôt Git, paquet
+`dist/snds-query.zip`).
