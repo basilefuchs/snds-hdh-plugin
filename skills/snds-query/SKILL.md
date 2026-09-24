@@ -23,15 +23,21 @@ prestations, période, exclusions…). L'interaction est obligatoire : poser les
 questions de clarification via l'outil de choix multiple si disponible (ex.
 AskUserQuestion), sinon à l'écrit, en attendant la réponse avant de continuer.
 
-## Ressources (par ordre d'autorité)
+## Ressources
+
+Règle d'autorité : **filtres et méthodologie** — documentation officielle HDH
+> profil > autres références ; **environnement** (connexion, schéma, nommage
+des tables) — profil seul. Tous les chemins ci-dessous sont relatifs au
+répertoire de base de la skill, pas au répertoire courant de l'utilisateur.
 
 1. **`references/profils/hdh_oracle.md`** — profil d'environnement : schéma
    réel, connexion, mapping concept → colonne validé, pièges et défauts
-   recommandés. **Fait foi** : en cas de contradiction avec les autres
-   ressources, le profil gagne. Le lire avant toute génération ; citer son
-   chemin dans le bloc « PROFIL DE BASE » du script. C'est la **seule** couche
-   spécifique à l'environnement : connexion Oracle, conventions de nommage de
-   table, défauts locaux viennent de ce profil, jamais du reste de la skill.
+   recommandés. **Fait foi** sur l'environnement et, à défaut de la
+   documentation officielle, sur les filtres. Le lire avant toute génération ; citer son
+   chemin dans le bloc « PROFIL DE BASE » du script. Connexion, conventions de
+   nommage de table et défauts locaux viennent de ce profil, jamais du reste
+   de la skill ; les templates contiennent en outre des éléments propres à
+   Oracle (`sql()`, `REGEXP_LIKE`, `ora_date()`) à adapter pour un autre SGBD.
    Si l'utilisateur travaille sur un environnement différent (export local,
    entrepôt de données de recherche autre que le SNDS national…), lui demander
    une fois les équivalents et lui proposer d'écrire un nouveau profil dans ce
@@ -46,10 +52,13 @@ AskUserQuestion), sinon à l'écrit, en attendant la réponse avant de continuer
    ex. chaînage mère-enfant, cartographie des pathologies, ALD), ou pour la
    liste à jour des FINESS APHP/APHM/HCL (fiche `2023-12-11_synthese_filtres_snds_v1`,
    volontairement non recopiée en dur dans le profil — trop longue et sujette
-   à péremption). Si WebFetch n'est pas disponible, se rabattre sur les
-   ressources 1, 3 et 5 ci-dessous, en signalant à l'utilisateur qu'elles
-   n'ont pas été recroisées avec la documentation officielle pour cette
-   génération.
+   à péremption). Si le site est inaccessible, lire la source brute sur
+   GitLab (URL et nom de fichier dans le profil, § « Documentation
+   officielle en ligne »). Les requêtes de la fiche filtres sont en MySQL :
+   les traduire pour Oracle (voir le profil). Si aucun accès web n'est
+   possible, se rabattre sur les ressources locales (1, 3 à 8), en signalant
+   à l'utilisateur qu'elles n'ont pas été recroisées avec la documentation
+   officielle pour cette génération.
 3. Le dictionnaire des tables/variables SNDS : `references/dictionnaire/`.
    Deux niveaux (voir étape 2) : `index-tables.csv` pour trouver la ou les
    tables pertinentes, puis la page HTML détail correspondante dans
@@ -60,8 +69,8 @@ AskUserQuestion), sinon à l'écrit, en attendant la réponse avant de continuer
    `snds/tables/` de la documentation officielle (ressource 2) est un schéma
    alternatif à croiser en cas de doute ou d'absence dans Kwikly.
 4. `references/modele-donnees.md` — synthèse du modèle de données : les 6
-   catégories SNDS, tables clés par catégorie, chaînage patient (3 identifiants
-   distincts selon la source), raccourcis de classification, pièges génériques.
+   catégories SNDS, tables clés par catégorie, chaînage patient (table de passage
+   `IR_BEN_R`, individu `BEN_IDT_ANO`), raccourcis de classification, pièges génériques.
 5. `references/clarifications.md` — checklist des clarifications à poser
    (source SNDS, inclusion, exclusion, critère de jugement, stratification).
 6. `references/points-de-vigilance.md` — registres de risques méthodologiques
@@ -140,13 +149,14 @@ trancher seul.
 
 ### 2. Interroger le dictionnaire
 
-Le dictionnaire SNDS est l'export HTML « Kwikly » : 6 catégories (DCIR — 17
+Le dictionnaire SNDS est l'export HTML « Kwikly » de la CNAM : 6 catégories (DCIR — 17
 tables, PMSI — 189 tables, CAUSE_DECES — 2 tables, CARTOGRAPHIE — 5 tables,
 VALEUR — 478 tables de valeurs/codes, AUTRE — 13 tables de référence propres
 indexées sous cette catégorie, notamment `IR_BEN_R` (référentiel
 bénéficiaire) et `IR_PHA_R` (référentiel médicament) ; le dossier
-Kwikly/AUTRE/ contient aussi une copie des 478 pages détail VALEUR, mais
-celles-ci restent indexées sous VALEUR, pas AUTRE). Il n'y a
+Kwikly/AUTRE/ contient aussi d'anciennes copies des 478 pages détail
+VALEUR, datées du 19/03/2026 : les ignorer, les pages à jour sont sous
+Kwikly/VALEUR/ et c'est là que pointe l'index). Il n'y a
 pas de CSV variable-par-variable exhaustif : la recherche se fait en **deux
 niveaux**.
 
@@ -157,8 +167,8 @@ niveaux**.
 # Chercher une notion dans les libellés de table (ex. "codage CCAM")
 grep -i "ccam" references/dictionnaire/index-tables.csv
 
-# Lister toutes les tables d'une catégorie (ex. DCIR)
-grep "^DCIR;" references/dictionnaire/index-tables.csv
+# Lister toutes les tables d'une catégorie (ex. DCIR) — champs entre guillemets
+grep '^"DCIR";' references/dictionnaire/index-tables.csv
 
 # Chercher un nom de table connu (ex. les tables MCO du PMSI)
 grep -i "T_MCO" references/dictionnaire/index-tables.csv
@@ -169,15 +179,17 @@ les 6 pages d'index de la catégorie concernée (`references/dictionnaire/Kwikly
 `PMSI.html`, `CAUSE_DECES.html`, `CARTOGRAPHIE.html`, `VALEUR.html`,
 `AUTRE.html`) : chaque ligne y donne le nom de table et son libellé.
 
-**Niveau 2 — vérifier les colonnes et leur disponibilité par millésime**, en
-lisant (avec l'outil Read, pas Grep — c'est un tableau HTML complet à
-regarder dans son ensemble) la page détail indiquée par `chemin`, ex.
+**Niveau 2 — vérifier les colonnes et leur disponibilité par millésime**,
+dans la page détail indiquée par `chemin` (grep ciblé en priorité ; Read
+avec offset/limit si le tableau doit être vu en entier — certaines pages
+dépassent 200 Ko), ex.
 `references/dictionnaire/Kwikly/DCIR/ER_CAM_F.html`. Chaque page donne, par
 variable : libellé, type, longueur, remarques, et pour les tables DCIR/PMSI/
 CARTOGRAPHIE une **colonne par millésime** avec un `X` si la variable existe
 cette année-là (les tables VALEUR/AUTRE/CAUSE_DECES n'ont pas ces colonnes
-annuelles, elles sont globalement statiques). On peut cibler une variable
-précise sans tout relire :
+annuelles, elles sont globalement statiques). Pour associer un `X` à son
+année, lire la ligne d'en-têtes `<th>` de la page. On peut cibler une
+variable précise sans tout relire :
 
 ```bash
 # Vérifier qu'une variable existe dans une table et voir sa remarque
@@ -193,13 +205,16 @@ Points d'attention propres à cet export, à garder en tête en étape 2 :
   `AA` (ex. `T_MCOAAB`) ; en base Oracle le nom réel porte l'année sur 2
   chiffres (ex. `T_MCO23B` pour 2023). Toujours reconstituer le nom réel avant
   de l'utiliser dans une requête.
-- Pour les tables **DCIR**, l'export ne détaille les colonnes annuelles que
-  de 2006 à 2012 ; au-delà, une colonne unique `*` indique une présence
-  continue mais sans préciser jusqu'à quand ni depuis quand exactement pour
-  les variables apparues après 2012. Pour un périmètre remontant avant 2013,
-  ne pas se fier aveuglément à cette colonne : le signaler et, si possible,
-  vérifier empiriquement (`COUNT(*)` par millésime) avant de conclure à une
-  absence ou une présence de donnée.
+- Pour les tables **DCIR**, l'export détaille la présence année par année de
+  2006 à 2012 (`X`) ; après 2012, une colonne unique `*` indique seulement
+  une présence à un moment donné. Une variable sans aucun `X` est apparue
+  après 2012 à une date inconnue ; une variable sans `*` a disparu (ex.
+  `ER_DCT_F.REM_TYP_AFF`, 2006 seulement). Pour un périmètre ≥ 2013 utilisant
+  une variable sans `X`, le signaler et, si possible, vérifier empiriquement
+  (`COUNT(*)` par année de `FLX_DIS_DTD`).
+- Vérifier aussi **sur quelle table** porte chaque colonne filtrée (ex.
+  `SEJ_TYP` est dans `T_MCO{aa}B`, pas dans `T_MCO{aa}C`) et la clé propre à
+  chaque champ PMSI (HAD/RIP : `ETA_NUM_EPMSI`, pas `ETA_NUM`).
 - Pour toute variable ou table utilisée dans le script final, vérifier que le
   millésime demandé est bien couvert (colonne annuelle à `X`, ou table
   listée dans le bon dossier de catégorie) avant de l'intégrer au protocole.
@@ -238,7 +253,8 @@ réponse détermine la table et la colonne à utiliser (voir `modele-donnees.md`
   `FP_PEC`/`MOR_PRP`/`ETL_AFF`/DAS en SSR) et/ou cause de décès CépiDc
   (`KI_CCI_R.DCD_CIM_COD` pour la cause initiale, `KI_ECD_R.ECD_CIM_COD` pour
   toutes les causes mentionnées) ;
-- acte → actes PMSI (`T_MCO{aa}A.CDC_ACT`, triplet équivalent en SSR) et/ou
+- acte → actes PMSI (`T_MCO{aa}A.CDC_ACT` ; en SSR `T_SSR{aa}CCAM.CCAM_ACT`
+  + `CCAM_COD_ACT` + `CCAM_PHA_ACT`, 2009+) et/ou
   actes DCIR en ville (`ER_CAM_F` : le triplet `CAM_PRS_IDE`+`CAM_ACT_COD`+
   `CAM_TRT_PHA` identifie un acte de façon unique — ne pas compter sur
   `CAM_PRS_IDE` seul) ;
@@ -267,7 +283,8 @@ question plutôt que de laisser l'utilisateur le découvrir plus tard — en
 particulier la dépendance structurante du SNDS : le choix de la ou des
 sources conditionne quelles questions de définition de code s'appliquent, et
 toute combinaison de sources impose de vérifier le chaînage inter-source
-(3 identifiants patient distincts selon la source, voir `modele-donnees.md`).
+(`NIR_ANO_17` = `BEN_NIR_PSA`, individu et décès via `IR_BEN_R.BEN_IDT_ANO`,
+voir `modele-donnees.md`).
 
 Si une réponse fait apparaître un risque de `references/points-de-vigilance.md`,
 le signaler **immédiatement**, avant de poursuivre.
@@ -298,14 +315,18 @@ communes aux deux formats :
 - Chaque table et chaque variable utilisées vérifiées dans le dictionnaire
   Kwikly, disponibilité par millésime confirmée pour toutes les années
   demandées (voir étape 2, y compris la prudence sur les colonnes DCIR `*`).
-- Connexion via le profil d'environnement (`profils/hdh_oracle.md`) :
-  `dbConnect(dbDriver("Oracle"), dbname = "IPIAMPR2.WORLD")`, avec
-  `Sys.setenv(TZ = "Europe/Paris")` et `Sys.setenv(ORA_SDTZ = "Europe/Paris")`
-  systématiques avant toute requête (sinon décalage de date par conversion
-  UTC — en particulier sur les dates de décès).
+- Connexion et fuseau : recopier le bloc « Connexion » du profil actif
+  (`profils/hdh_oracle.md`) — `TZ`/`ORA_SDTZ` posés AVANT `dbConnect()`
+  (`ORA_SDTZ` est lu à l'ouverture de session ; sinon décalage de date par
+  conversion UTC, en particulier sur les dates de décès).
+- Bornes de date dans `filter()` : toujours `!!ora_date(d)` (littéral
+  `DATE 'AAAA-MM-JJ'`), jamais une date R brute (traduite en chaîne).
+  Listes de codes : `%in%` est limité à 1000 valeurs en Oracle
+  (ORA-01795) ; au-delà, `semi_join` sur une requête lazy.
 - Style dbplyr par défaut : `tbl(conn, I("TABLE"))`, pipe natif `|>`, `sql()`
   pour les fonctions Oracle sans équivalent dbplyr (ex.
-  `filter(sql("REGEXP_LIKE(CAM_ACT_COD, '^[A-Z]{3}L')"))`). Le style
+  `filter(sql("REGEXP_LIKE(CAM_PRS_IDE, '^[A-Z]{3}L')"))` — le code CCAM en
+  ville est `CAM_PRS_IDE`, `CAM_ACT_COD` est le code activité). Le style
   historique `glue()` + chaîne SQL brute (répandu dans des scripts R
   existants) reste à reconnaître et à savoir relire si l'utilisateur colle
   un script existant dans cette convention, mais n'est pas le style de
@@ -327,14 +348,19 @@ communes aux deux formats :
   documentation officielle (ressource 2) plutôt que d'en improviser une. De
   même, pour toute extraction batchée sur `ER_PRS_F`, consulter la
   documentation officielle (WebFetch) pour la marge de flux à appliquer après
-  la période clinique demandée (voir `points-de-vigilance.md`) plutôt que
-  d'en fixer une par défaut.
-- Rappel dans le script (commentaire) de la nécessité de `%m_stats_table()`
-  (SAS) après toute création de table jointe destinée à être réutilisée.
+  la période clinique demandée ; à défaut, marge officielle : au moins 5
+  mois de données (6 flux), 12 pour une extraction exhaustive, jamais plus
+  de 24 (voir `points-de-vigilance.md`).
+- Toute table temporaire réutilisée : `copy_to()`/`compute()` avec
+  `analyze = TRUE` (statistiques Oracle) et index utiles, ou
+  `DBMS_STATS.GATHER_TABLE_STATS` après un `CREATE TABLE`.
 - En-tête de script normalisé : bloc titre (indicateur, question, protocole)
   puis bloc « PROFIL DE BASE » listant sources SNDS, tables, variables et
   conventions effectivement utilisées.
-- Flowchart d'attrition systématique (population brute → chaque exclusion).
+- Flowchart d'attrition systématique (population brute → chaque exclusion),
+  construit sur les **mêmes étapes, dans le même ordre** que l'extraction
+  (une seule définition des étapes, cf. `template.R`), et soumis au secret
+  statistique (effectifs et nombres d'exclus) si la finalité l'impose.
 - **Aucune écriture de fichier local contenant un identifiant, une date ou
   une localisation individuelle** — rappeler la règle SNDS dans le script et
   dans la livraison (étape 6).
@@ -345,6 +371,7 @@ Livrer le fichier nommé d'après la question, accompagné d'une note
 méthodologique (ou intégrée au `.Rmd`) : définitions retenues (source des
 codes si recherche), flowchart d'attrition, limites (fiabilité du chaînage
 inter-source le cas échéant, année PMSI = année de sortie, évolutions de
-codage, couverture DCIR pré-2013), et un rappel explicite de la règle de
+codage, disponibilité des variables DCIR après 2012, dates PMSI avant 2009,
+réforme SMR 2023, exhaustivité du statut vital), et un rappel explicite de la règle de
 non-persistance locale des extractions SNDS identifiantes avant de clore
 l'échange.

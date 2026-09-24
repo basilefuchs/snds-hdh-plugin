@@ -23,6 +23,11 @@ Années Covid (2020–2021) dans une tendance ; changements de nomenclature ou
 de consignes de codage sur la période (CIM-10, CCAM) ; rupture structurelle
 de table (ex. `EXT_PMSI` absent avant 2015 — cf. `modele-donnees.md`, pièges).
 
+**SSR → SMR (1er juin 2023, réforme du financement en juillet 2023)** : les
+tables restent `T_SSR{aa}*`, mais `FP_PEC` n'est plus codé après le
+01/03/2023 (absent du millésime 2023+) — ne pas l'utiliser comme critère sur
+2023+, et signaler la rupture pour toute série SSR traversant 2023.
+
 ## Biais de définition
 
 - DP seul sous-estime une prévalence hospitalière.
@@ -50,23 +55,32 @@ usuelle sur les extractions SNDS.
 ## Chaînage inter-source
 
 Dès qu'un protocole combine plusieurs sources SNDS (DCIR, PMSI,
-CAUSE_DECES), rappeler que le chaînage patient n'est pas automatique : trois
-identifiants distincts selon la source (voir `modele-donnees.md`), pas de
-table de passage directe dans le dictionnaire fourni, et un même identifiant
-DCIR peut être associé à plusieurs identifiants pivots dans `IR_BEN_R`.
-Quantifier et signaler la perte ou l'ambiguïté de chaînage plutôt que de la
-passer sous silence.
+CAUSE_DECES), rappeler que le chaînage patient n'est pas automatique (voir
+`modele-donnees.md`, « Chaînage patient ») : `NIR_ANO_17` (PMSI) =
+`BEN_NIR_PSA` (DCIR), l'individu est `IR_BEN_R.BEN_IDT_ANO` (un individu peut
+porter plusieurs `BEN_NIR_PSA`), et les causes de décès ne sont appariées à
+`IR_BEN_R` que partiellement (`DCD_IDT_TOP`). Quantifier et signaler la perte
+ou l'ambiguïté de chaînage plutôt que de la passer sous silence.
+
+## Statut vital
+
+`BEN_DCD_DTE` = 1600 signifie « aucun décès connu » (vivant OU date
+manquante). L'exhaustivité n'est garantie que pour le régime général hors SLM
+depuis juillet 2009 (MSA depuis 2009 ; RSI et SLM peu renseignés) : utiliser
+`IR_BEN_R` seul sous-estime la mortalité, différemment selon le régime.
+Croiser avec `KI_CCI_R` (via `BEN_IDT_ANO`) et les décès hospitaliers
+(`SOR_MOD = 9` en PMSI), et fixer une règle de priorité entre dates.
 
 ## Délai de remontée DCIR (`FLX_DIS_DTD` vs `EXE_SOI_DTD`)
 
 Toute extraction `ER_PRS_F` batchée par flux technique (`FLX_DIS_DTD`, voir
 `modele-donnees.md` piège n°11 et `template.R` Pattern C) risque de perdre
 les prestations de fin de période remontées en retard si la boucle de flux
-s'arrête pile à la fin de la période clinique demandée (`EXE_SOI_DTD`). Pas
-de marge par défaut fiable codée dans cette skill : vérifier via la
-documentation officielle HDH (WebFetch) le délai de stabilisation à prévoir
-avant de fixer la borne de flux ; si WebFetch est indisponible, le signaler
-explicitement à l'utilisateur plutôt que d'appliquer une marge non vérifiée.
+s'arrête pile à la fin de la période clinique demandée (`EXE_SOI_DTD`).
+Marge officielle (documentation HDH, fiche synthèse des filtres) : au minimum
+5 mois de données après la période d'étude (flux `FLX_DIS_DTD` jusqu'au 1er
+du mois fin + 6), 12 mois pour une extraction exhaustive, jamais plus de 24
+mois. Le signaler dans le protocole, avec la marge retenue.
 
 ## Confidentialité — non-persistance locale
 

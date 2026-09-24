@@ -18,7 +18,7 @@ catégories :
 | DCIR           | Consommation de soins de ville (datamart inter-régimes) | 17     |
 | PMSI           | Séjours hospitaliers (MCO, SSR, HAD, RIP/psychiatrie) | 189      |
 | CAUSE_DECES    | Cause médicale de décès (CépiDc)                     | 2         |
-| CARTOGRAPHIE   | Cartographie des pathologies (agrégats populationnels) | 5       |
+| CARTOGRAPHIE   | Cartographie des pathologies (tables individuelles : tops pathologies/ALD) | 5 |
 | VALEUR         | Tables de valeurs / codes (nomenclatures)             | 478       |
 | AUTRE          | 13 tables de référence propres (dont `IR_BEN_R`, `IR_PHA_R`, `IR_IMB_R`), indexées sous la catégorie AUTRE ; le dossier Kwikly/AUTRE/ contient aussi une copie des 478 pages détail VALEUR (soit 491 fichiers physiques), mais celles-ci restent indexées sous VALEUR, pas AUTRE | 13 |
 
@@ -30,9 +30,11 @@ chiffres, zéro-paddé) avant toute requête.
 
 ## DCIR — soins de ville
 
-Clé technique de jointure commune à toutes les tables « flux » DCIR (9
-colonnes) : `FLX_DIS_DTD`, `FLX_TRT_DTD`, `FLX_EMT_TYP`, `FLX_EMT_NUM`,
-`FLX_EMT_ORD`, `ORG_CLE_NUM`, `DCT_ORD_NUM`, `PRS_ORD_NUM`, `REM_TYP_AFF`.
+Clé technique de jointure des tables « flux » DCIR de niveau prestation
+jointes à `ER_PRS_F` (9 colonnes) : `FLX_DIS_DTD`, `FLX_TRT_DTD`,
+`FLX_EMT_TYP`, `FLX_EMT_NUM`, `FLX_EMT_ORD`, `ORG_CLE_NUM`, `DCT_ORD_NUM`,
+`PRS_ORD_NUM`, `REM_TYP_AFF` (exceptions `ER_DCT_F`, `ER_UCD_F`, `ER_LOT_F`,
+`ER_TRS_F` : voir `profils/hdh_oracle.md`).
 
 Tables clés : `ER_PRS_F` (en-tête prestation, table pivot), `ER_PHA_F`
 (pharmacie), `ER_CAM_F` (actes CCAM en ville), `IR_PHA_R` (référentiel
@@ -44,20 +46,24 @@ Filtres qualité DCIR standard (source : documentation officielle HDH) :
 `DPN_QLF NOT IN (71, 72)` **et** `PRS_DPN_QLP NOT IN (71, 72)` (exclusion de
 l'activité hospitalière publique en co-remontée), en gérant les `NULL`
 explicitement (`IS NULL`/`IS NOT NULL`, un simple `!= 71` les exclut
-silencieusement en SQL Oracle) ; `CPL_MAJ_TOP <> 2` optionnel, utile pour un
-dénombrement de lignes. Détail complet : `profils/hdh_oracle.md`.
+silencieusement en SQL Oracle) ; exclusion des établissements ex-DG en
+facturation directe (`ER_ETE_F.ETE_IND_TAA <> 1 OR IS NULL`, jointure gauche
+9 colonnes) ; `CPL_MAJ_TOP <> 2` optionnel, utile pour un dénombrement de
+lignes. Détail complet : `profils/hdh_oracle.md`.
 
 ## PMSI — séjours hospitaliers
 
 Familles de tables par champ et par lettre (clé technique
-`(ETA_NUM, RSA_NUM)` en MCO, `(ETA_NUM, RHA_NUM)` en SSR) :
+`(ETA_NUM, RSA_NUM)` en MCO, `(ETA_NUM, RHA_NUM)` en SSR,
+`(ETA_NUM_EPMSI, RHAD_NUM)` en HAD, `(ETA_NUM_EPMSI, RIP_NUM)` en RIP — pas de
+colonne `ETA_NUM` en HAD/RIP) :
 
 | Champ | En-tête/chaînage | Diagnostics/GHM/groupage | Actes | DAS |
 |---|---|---|---|---|
 | MCO | `T_MCO{aa}C` | `T_MCO{aa}B` | `T_MCO{aa}A` | `T_MCO{aa}D` |
-| SSR | `T_SSR{aa}C` | `T_SSR{aa}B` / `T_SSR{aa}GME` | `T_SSR{aa}CCAM`/`CSARR` | `T_SSR{aa}D` |
-| HAD | `T_HAD{aa}C` | `T_HAD{aa}GRP` | `T_HAD{aa}A`* | `T_HAD{aa}D`* |
-| RIP (psychiatrie) | `T_RIP{aa}C` | `T_RIP{aa}RSA` | `T_RIP{aa}CCAM`* | `T_RIP{aa}RSAD`* |
+| SSR/SMR | `T_SSR{aa}C` | `T_SSR{aa}B` / `T_SSR{aa}GME` | `T_SSR{aa}CCAM` (2009+), `T_SSR{aa}CSARR` (2014+), `T_SSR{aa}CCAR` (CdARR 2009-2013) | `T_SSR{aa}D` (2009+ ; avant : `ASS_DGN_1..20` dans B) |
+| HAD | `T_HAD{aa}C` | `T_HAD{aa}B` (DP `DGN_PAL`, `PEC_PAL`) / `T_HAD{aa}GRP` (groupage) | `T_HAD{aa}A`* (2010+) | `T_HAD{aa}D`* (2010+ ; 2007-2009 : `DGN_PAL1..7` dans B) |
+| RIP (psychiatrie) | `T_RIP{aa}C` | `T_RIP{aa}RSA` | `T_RIP{aa}CCAM`* (2017+) | `T_RIP{aa}RSAD`* |
 
 Chaînage et filtres qualité de `T_MCO{aa}C`/`T_HAD{aa}C`/`T_RIP{aa}C` et
 groupage de `T_HAD{aa}GRP`/`T_RIP{aa}RSA` **validés** via la documentation
@@ -72,7 +78,7 @@ Diagnostics « principaux » selon le champ :
 | Champ | Variables diagnostiques | DAS |
 |---|---|---|
 | MCO | `DGN_PAL` (DP), `DGN_REL` (DR) — table `T_MCO{aa}B` | `ASS_DGN` — table `T_MCO{aa}D` |
-| SSR | `FP_PEC` (finalité principale), `MOR_PRP` (manifestation morbide principale), `ETL_AFF` (affection étiologique) — table `T_SSR{aa}B` | `DGN_COD` — table `T_SSR{aa}D` |
+| SSR | `FP_PEC` (finalité principale, **2006-2022** : plus codée après le 01/03/2023, réforme SMR), `MOR_PRP` (manifestation morbide principale), `ETL_AFF` (affection étiologique) — table `T_SSR{aa}B` | `DGN_COD` — table `T_SSR{aa}D` (2009+) |
 
 Filtres qualité PMSI standard (source : documentation officielle HDH, à
 appliquer sur la table d'en-tête/chaînage `C`) :
@@ -80,37 +86,43 @@ appliquer sur la table d'en-tête/chaînage `C`) :
 AND PMS_RET='0'` — disponible depuis 2005 pour MCO/HAD/SSR, mais seulement
 **depuis 2007 pour RIP** (exception documentée dans le profil, voir
 `profils/hdh_oracle.md` section RIP) ; `+ DAT_RET='0'` (depuis 2006), `+
-COH_NAI_RET='0' AND COH_SEX_RET='0'` (depuis 2013, tous champs). MCO uniquement :
-exclusion des transferts inter-établissements `SEJ_TYP <> 'B' OU NULL`, et
+COH_NAI_RET='0' AND COH_SEX_RET='0'` (depuis 2013, tous champs), `+` exclusion
+des `NIR_ANO_17` fictifs (liste dans le profil). Tables d'activité externe
+(`*CSTC`) : codes retour propres, voir le profil. MCO uniquement :
+exclusion des prestations inter-établissements (PIE) `SEJ_TYP <> 'B' OU NULL`
+(colonne de `T_MCO{aa}B`), et
 exclusion des doublons de transmission APHP/APHM/HCL (~50 FINESS, **valable
 uniquement 2005-2017**, liste à récupérer en direct sur la fiche officielle
 plutôt que codée en dur — voir `profils/hdh_oracle.md`). Exclusion GHM/GME
-en erreur : `SUBSTR(GRG_GHM,1,2) <> '90'` (MCO), `GRG_GME NOT LIKE '90%' OU
-GME_COD NOT LIKE '90%'` (SSR, nom de colonne selon millésime), `GHT_NUM <>
-'99'` (HAD), `SEQ_IND <> 'E'` jusqu'en 2016 + `TYP_GEN_RSA = '0'` depuis
+en erreur : `SUBSTR(GRG_GHM,1,2) <> '90'` (MCO) ; SSR 2013+ :
+`GRG_GME NOT LIKE '90%'` sur `T_SSR{aa}B` ou `GME_COD NOT LIKE '90%'` sur
+`T_SSR{aa}GME` (un seul des deux, pas de `OR`) ; `GHT_NUM <> '99'` (HAD), `SEQ_IND <> 'E'` jusqu'en 2016 + `TYP_GEN_RSA = '0'` depuis
 2015 (RIP).
 
 ## CAUSE_DECES — mortalité (CépiDc)
 
 `KI_CCI_R` (1 ligne/décès, cause initiale `DCD_CIM_COD`) et `KI_ECD_R`
 (1 ligne/cause mentionnée, `ECD_CIM_COD` + rang `ECD_CAU_RNG` — `1` = cause
-initiale). Identifiant patient : `BEN_NIR_ANO` — **différent** des
-identifiants PMSI et DCIR (voir chaînage ci-dessous). Utiliser `KI_CCI_R`
+initiale), reliées entre elles par `DCD_IDT_ENC`. Identifiant de l'individu :
+`BEN_IDT_ANO`, relié à `IR_BEN_R.BEN_IDT_ANO` (voir chaînage ci-dessous). Utiliser `KI_CCI_R`
 pour une cause de décès unique (mortalité par cause), `KI_ECD_R` pour capter
 les causes associées/contributives (ex. comorbidités mentionnées au
 certificat).
 
 ## CARTOGRAPHIE, VALEUR, AUTRE
 
-- **CARTOGRAPHIE** : tables d'agrégats de la cartographie des pathologies
-  CNAM (`CRTO_CT_*`), millésimées, granularité départementale/nationale — utile
-  pour des comparaisons de prévalence à un niveau agrégé, pas pour une
-  extraction patient.
+- **CARTOGRAPHIE** : tables individuelles de la cartographie des pathologies
+  CNAM (`CRTO_CT_*`, 1 ligne par bénéficiaire et par millésime, identifiant
+  `BEN_IDT_ANO`, 2015-2023) : démographie (`CRTO_CT_DEP_GN_AAAA`), tops
+  pathologies/ALD (`CRTO_CT_IND_GN_AAAA`), résidence (`CRTO_CT_RES_GN_AAAA`) ;
+  passage vers le DCIR via `CRTO_CT_IDE_GN` (`BEN_IDT_ANO` ↔
+  `BEN_NIR_PSA`+`BEN_RNG_GEM`).
 - **VALEUR** : 478 tables de correspondance code → libellé (nomenclatures,
   suffixe `_V`). À utiliser pour libeller un résultat, pas comme table de
   faits.
-- **AUTRE** : contient les 478 tables VALEUR **plus** 13 tables de référence
-  propres, dont les trois les plus utiles en pratique : `IR_BEN_R`
+- **AUTRE** : 13 tables de référence propres (le dossier `Kwikly/AUTRE/`
+  contient aussi d'anciennes copies des pages VALEUR, datées du 19/03/2026 :
+  ne pas les utiliser, les pages à jour sont sous `Kwikly/VALEUR/`), dont les trois les plus utiles en pratique : `IR_BEN_R`
   (référentiel bénéficiaire — décès, résidence, naissance), `IR_PHA_R`
   (référentiel médicament — classe ATC, CIP13/UCD) et `IR_IMB_R`
   (référentiel médicalisé — ALD, filtres validés dans `profils/hdh_oracle.md`).
@@ -119,29 +131,44 @@ certificat).
   d'usage documenté dans cet environnement — à explorer via leur page Kwikly
   au cas par cas.
 
-## Chaînage patient — 3 identifiants distincts, pas de clé universelle
+## Chaînage patient — identifiants et table de passage `IR_BEN_R`
 
-Le SNDS utilise **trois variantes d'identifiant pseudonymisé selon la
-source**, sans clé universelle ni table de passage directe fournie dans cet
-export :
+Source : documentation officielle HDH (schéma relationnel SNDS, fiche
+bénéficiaire). `IR_BEN_R` sert de table de passage : il porte à la fois
+`BEN_NIR_PSA`, `BEN_RNG_GEM`, `BEN_NIR_ANO` et `BEN_IDT_ANO`.
 
-| Source          | Colonne(s) identifiant patient      |
-|------------------|----------------------------------------|
-| PMSI             | `NIR_ANO_17`                           |
-| DCIR             | `BEN_NIR_PSA` + `BEN_RNG_GEM` (le couple, pas `BEN_NIR_PSA` seul) |
-| CAUSE_DECES      | `BEN_NIR_ANO`                          |
+| Source          | Colonne(s) | Rôle |
+|------------------|------------|------|
+| PMSI             | `NIR_ANO_17` | pseudonyme de l'ouvreur de droit, **égal à `BEN_NIR_PSA`** du DCIR (depuis 2006) |
+| DCIR             | `BEN_NIR_PSA` + `BEN_RNG_GEM` | clé de jointure `ER_PRS_F` ↔ `IR_BEN_R`, **pas** un identifiant d'individu |
+| Individu (tous SNDS) | `IR_BEN_R.BEN_IDT_ANO` (= `BEN_NIR_ANO` si `BEN_IDT_TOP = 1`) | à utiliser pour compter des patients uniques |
+| CAUSE_DECES      | `BEN_IDT_ANO` (et `BEN_NIR_ANO`) | jointure `KI_CCI_R.BEN_IDT_ANO = IR_BEN_R.BEN_IDT_ANO` |
 
-Pour toute analyse croisant plusieurs sources (ex. hospitalisation PMSI +
-consommation DCIR, ou séjour PMSI + décès CépiDc), le chaînage inter-source
-doit être traité comme une étape à part entière du protocole, pas une simple
-jointure : documenter la méthode retenue, signaler la perte éventuelle, et
-garder à l'esprit qu'un même `BEN_NIR_PSA` peut être associé à plusieurs
-`BEN_IDT_ANO`/`BEN_RNG_GEM` dans `IR_BEN_R` (ambiguïté à quantifier avant
-de compter des patients uniques).
+1. **PMSI ↔ DCIR** : `NIR_ANO_17 = BEN_NIR_PSA`. Ne pas chaîner sur le rang
+   PMSI (`RNG_NAI`, qualité insuffisante). La jointure peut ramener plusieurs
+   `BEN_RNG_GEM` pour un même pseudonyme : dédupliquer ou départager, et
+   quantifier les `NIR_ANO_17` sans correspondance.
+2. **Patients uniques** : un même individu peut porter plusieurs
+   `BEN_NIR_PSA` (un par ouvreur de droit) et un `BEN_NIR_PSA` peut couvrir
+   plusieurs `BEN_RNG_GEM` (ayants droit, jumeaux, régimes hors RG).
+   Compter sur `BEN_NIR_PSA`+`BEN_RNG_GEM` surestime les effectifs : joindre
+   `IR_BEN_R` sur `(BEN_NIR_PSA, BEN_RNG_GEM)` et compter `BEN_IDT_ANO`, après
+   les filtres qualité population du profil.
+3. **Causes de décès ↔ SNDS** : `KI_CCI_R.BEN_IDT_ANO = IR_BEN_R.BEN_IDT_ANO`,
+   puis `IR_BEN_R.BEN_NIR_PSA` vers le DCIR ou `NIR_ANO_17` du PMSI.
+   L'appariement est incomplet : contrôler `DCD_IDT_TOP` (apparié avec
+   `IR_BEN_R`) et signaler la perte. `KI_CCI_R` ↔ `KI_ECD_R` : `DCD_IDT_ENC`.
+4. **CARTOGRAPHIE** : passage `BEN_IDT_ANO` ↔ `BEN_NIR_PSA`+`BEN_RNG_GEM` via
+   `CRTO_CT_IDE_GN`.
 
-Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
-`T_MCO{aa}C` (`NIR_RET`, `NAI_RET`, `SEX_RET`, `SEJ_RET`, `FHO_RET`,
-`PMS_RET` = `'0'`) avant tout comptage de patients uniques.
+Pour toute analyse croisant plusieurs sources, le chaînage reste une étape à
+part entière du protocole : documenter la méthode, quantifier la perte et les
+correspondances multiples.
+
+Qualité du chaînage intra-PMSI : appliquer les filtres qualité PMSI standard
+(voir « Filtres qualité PMSI standard » ci-dessus : `*_RET`, `+ DAT_RET`
+depuis 2006, `+ COH_NAI_RET`/`COH_SEX_RET` depuis 2013, NIR fictifs) avant
+tout comptage de patients uniques.
 
 ## Raccourcis de classification usuels
 
@@ -150,19 +177,23 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
   (pattern validé).
 - Racine de GHM (5 caractères) : `substr(GRG_GHM, 1, 5)` ; CMD (2 car.) :
   `substr(GRG_GHM, 1, 2)`.
-- GHM en erreur : `substr(GRG_GHM, 1, 2) != "90"`. GME (SSR) en erreur :
-  `GRG_GME` ou `GME_COD` (selon millésime) commençant par `"90"`.
-- Actes CCAM en ville : un acte = triplet `(CAM_PRS_IDE, CAM_ACT_COD,
-  CAM_TRT_PHA)`, pas `CAM_PRS_IDE` seul.
-- Chaînage mère-enfant (MCO) : `ID_MAM_ENF` / `NIR_ANO_MAM` (table
-  `T_MCO{aa}C`).
+- GHM en erreur : `substr(GRG_GHM, 1, 2) != "90"`. GME (SSR, 2013+) en
+  erreur : `GRG_GME` (`T_SSR{aa}B`) ou `GME_COD` (`T_SSR{aa}GME`) commençant
+  par `"90"` — un seul des deux, chacun sur sa table.
+- Actes CCAM en ville : code CCAM = `CAM_PRS_IDE` (`CAM_ACT_COD` est le code
+  activité, 1 caractère) ; un acte = triplet `(CAM_PRS_IDE, CAM_ACT_COD,
+  CAM_TRT_PHA)`, pas `CAM_PRS_IDE` seul. En SSR : `CCAM_ACT` + `CCAM_COD_ACT`
+  + `CCAM_PHA_ACT` (`T_SSR{aa}CCAM`).
+- Chaînage mère-enfant (MCO) : `NIR_ANO_MAM` (2013-2018) puis `ID_MAM_ENF`
+  (2019+), table `T_MCO{aa}C`.
 
 ## Filtres CIM-10/CCAM/ATC : `substr`/`%in%` ou `REGEXP_LIKE` Oracle
 
 - Listes simples de codes : `substr(DGN_PAL, 1, 3) %in% c("E10", ...)`.
 - Motifs complexes ou multi-racines : `REGEXP_LIKE` en SQL brut via `sql()`
   (fonction Oracle) :
-  `filter(sql("REGEXP_LIKE(CDC_ACT, '^[A-Z]{3}L')"))` ou
+  `filter(sql("REGEXP_LIKE(CDC_ACT, '^[A-Z]{3}L')"))` (PMSI),
+  `filter(sql("REGEXP_LIKE(CAM_PRS_IDE, '^[A-Z]{3}L')"))` (ville) ou
   `filter(sql("REGEXP_LIKE(PHA_ATC_CLA, '^B01|^N06AB')"))` côté pharmacie.
 - Le style historique `glue()` + chaîne SQL Oracle brute (`dbGetQuery(conn,
   glue(query, an = ..., table = ...))`) reste répandu dans des scripts R
@@ -174,17 +205,20 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
 ## Pièges classiques (à vérifier / signaler systématiquement)
 
 1. **Année PMSI = année de sortie** : un séjour à cheval compte sur le
-   millésime de sortie. L'incidence par date d'entrée nécessite les
-   dates réelles (`EXE_SOI_DTD`), indisponibles avant 2009 (forcées au 1er du
-   mois/année).
+   millésime de sortie. L'incidence par date d'entrée nécessite les dates
+   réelles (`EXE_SOI_DTD`/`EXE_SOI_DTF`), **absentes** de `T_MCO{aa}C` et
+   `T_SSR{aa}C` avant 2009 (ORA-00904) : pour 2006-2008, n'utiliser que le
+   mois/année de sortie (`SOR_ANN`/`SOR_MOI`) et écrire une forme de requête
+   par période. `SOR_ANN`/`SOR_MOI` disparaissent de `T_MCO{aa}C` après 2018
+   (`ENT_ANN`/`ENT_MOI` à partir de 2019 ; toujours présents dans `B`).
 2. **Séances (MCO)** : GHM commençant par `28` — un patient dialysé peut
    générer des dizaines de « séjours »/an ; toujours demander l'inclusion.
 3. **GHM/GME en erreur** : exclusion par défaut (`90*`).
-4. **Trois identifiants patient distincts** selon la source (`NIR_ANO_17`
-   PMSI, `BEN_NIR_PSA`+`BEN_RNG_GEM` DCIR, `BEN_NIR_ANO` CAUSE_DECES —
-   `KI_CCI_R`/`KI_ECD_R` inclus) — pas de table de passage directe ; le
-   chaînage inter-source est une étape de protocole à part entière, pas une
-   jointure anodine.
+4. **Chaînage et patients uniques** : `NIR_ANO_17` (PMSI) = `BEN_NIR_PSA`
+   (DCIR), mais l'individu est `IR_BEN_R.BEN_IDT_ANO` (clé aussi des causes
+   de décès) — compter sur `BEN_NIR_PSA`+`BEN_RNG_GEM` surestime les
+   patients. Voir « Chaînage patient » ; le chaînage inter-source est une
+   étape de protocole à part entière, pas une jointure anodine.
 5. **`DPN_QLF`/`PRS_DPN_QLP`/filtres qualité DCIR sur colonnes potentiellement
    `NULL`** : un simple `col != valeur` exclut silencieusement les `NULL` en
    SQL Oracle — utiliser `is.na(col) | col != valeur` quand la colonne peut
@@ -200,16 +234,23 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
    (actes CCAM MCO) absent avant 2015 — deux formes de requête selon le
    millésime ; plus généralement, toujours croiser la période demandée avec
    les colonnes annuelles Kwikly avant de figer une requête pluriannuelle.
-8. **Colonnes annuelles DCIR incomplètement documentées** : Kwikly ne
-   détaille les millésimes DCIR que jusqu'en 2012 (colonne `*` ensuite,
-   portée exacte non précisée) — prudence sur un périmètre < 2013.
+8. **Colonnes annuelles DCIR incomplètement documentées** : Kwikly détaille
+   les millésimes DCIR année par année de 2006 à 2012 (`X`) ; après 2012, `*`
+   indique seulement une présence à un moment donné. Une variable sans aucun
+   `X` est apparue après 2012 à une date inconnue ; une variable sans `*` a
+   disparu (ex. `ER_DCT_F.REM_TYP_AFF`, 2006 seulement). Pour un périmètre
+   ≥ 2013 utilisant une variable sans `X`, vérifier empiriquement
+   (`COUNT(*)` par année de `FLX_DIS_DTD`).
 9. **Fuseau horaire Oracle/R** : sans `Sys.setenv(TZ=...)` et
-   `Sys.setenv(ORA_SDTZ=...)` posés à `Europe/Paris` en tout début de
-   script, les dates remontées par `ROracle` peuvent être décalées d'un jour
+   `Sys.setenv(ORA_SDTZ=...)` posés à `Europe/Paris` AVANT `dbConnect()`
+   (`ORA_SDTZ` est lu à l'ouverture de session), les dates remontées par `ROracle` peuvent être décalées d'un jour
    (conversion UTC) — critique sur les dates de décès notamment.
-10. **Indexation après jointure** : toute table créée par jointure et
-    destinée à être réutilisée doit être indexée via `%m_stats_table()`
-    (SAS) — sinon jointures suivantes très lentes.
+10. **Statistiques après matérialisation** : toute table temporaire créée et
+    réutilisée doit avoir ses statistiques Oracle calculées — en R,
+    `copy_to()`/`compute()` avec `analyze = TRUE` (défaut) et `indexes = ...`,
+    ou `DBMS_STATS.GATHER_TABLE_STATS` après un `CREATE TABLE`
+    (`%m_stats_table()` est l'équivalent côté SAS) — sinon jointures suivantes
+    très lentes.
 11. **Volumétrie de `ER_PRS_F`** : cette table (et celles jointes dessus —
     `ER_PHA_F`, `ER_CAM_F`...) est trop volumineuse pour être interrogée en
     une seule requête au-delà de quelques mois. Batcher systématiquement sur
@@ -221,9 +262,10 @@ Qualité du chaînage intra-PMSI : filtrer sur les codes retour de
     dans un flux ultérieur. La boucle de flux doit donc courir jusqu'à la
     fin de la période clinique **plus une marge**, chaque batch filtrant
     ensuite précisément sur `EXE_SOI_DTD` pour ne garder que la période
-    demandée — voir `points-de-vigilance.md` pour cette marge (pas de valeur
-    par défaut chiffrée : à vérifier via la documentation officielle HDH à
-    chaque génération). Pattern de code validé : `template.R`, Pattern C.
+    demandée — marge officielle : au moins 5 mois de données après la
+    période (6 flux), 12 mois pour une extraction exhaustive, jamais plus de
+    24 (voir `points-de-vigilance.md`). Pattern de code validé :
+    `template.R`, Pattern C.
 
 ## Comment utiliser le dictionnaire Kwikly (recherche en deux niveaux)
 
@@ -234,16 +276,17 @@ deux temps :
    `references/dictionnaire/index-tables.csv` (colonnes
    `categorie;table;libelle;chemin`) :
    ```bash
-   grep -i "ccam" references/dictionnaire/index-tables.csv     # notion dans les libellés
-   grep "^DCIR;" references/dictionnaire/index-tables.csv       # toutes les tables d'une catégorie
+   grep -i "ccam" references/dictionnaire/index-tables.csv      # notion dans les libellés
+   grep '^"DCIR";' references/dictionnaire/index-tables.csv      # toutes les tables d'une catégorie (champs entre guillemets)
    ```
    Si ce fichier est absent ou semble périmé, chercher directement dans la
    page d'index de la catégorie (`Kwikly/DCIR.html`, `Kwikly/PMSI.html`,
    etc.), qui liste toutes les tables de la catégorie avec leur libellé et
    le lien vers la page détail.
 
-2. **Lire la page détail** (`references/dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html`,
-   via l'outil Read) pour la liste exhaustive des colonnes : variable,
+2. **Consulter la page détail** (`references/dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html`,
+   grep ciblé ; Read seulement si nécessaire, certaines pages dépassent
+   200 Ko) pour la liste exhaustive des colonnes : variable,
    libellé, type, longueur, remarques, et — pour DCIR/PMSI/CARTOGRAPHIE
    uniquement — une colonne par millésime avec un `X` si la variable existe
    cette année-là. Pour cibler une variable précise sans tout relire :

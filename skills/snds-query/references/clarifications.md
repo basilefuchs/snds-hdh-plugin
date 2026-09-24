@@ -3,9 +3,10 @@
 Poser par lots de 4 questions maximum, via l'outil de choix multiple si
 disponible (ex. AskUserQuestion), sinon à l'écrit. Toujours proposer une
 option par défaut marquée « (Recommandé) ». Ne poser que les questions
-pertinentes pour la demande, mais le bloc 0 et les blocs A, B, C doivent être
-couverts (par une question ou par un défaut explicitement validé au moment
-du protocole).
+pertinentes pour la demande, mais le bloc 0 et les blocs A, B, C, D doivent
+être couverts (par une question ou par un défaut explicitement validé au
+moment du protocole — pour D, « aucune stratification » est un défaut
+valable).
 
 ## Dépendances entre questions (à signaler explicitement)
 
@@ -18,24 +19,29 @@ du protocole).
   (`ER_PHA_F`+`IR_PHA_R`) est retenue.
 - **Q1 (sources combinées)** : si plusieurs sources SNDS sont retenues
   ensemble (ex. PMSI + DCIR, ou PMSI + CAUSE_DECES), le chaînage
-  inter-source doit être vérifié et documenté séparément — DCIR
-  (`BEN_NIR_PSA`+`BEN_RNG_GEM`), PMSI (`NIR_ANO_17`) et CAUSE_DECES
-  (`BEN_NIR_ANO`) utilisent trois identifiants distincts, sans passage direct.
+  inter-source doit être vérifié et documenté séparément — `NIR_ANO_17`
+  (PMSI) = `BEN_NIR_PSA` (DCIR), individu et causes de décès via
+  `IR_BEN_R.BEN_IDT_ANO`, appariement des décès incomplet (voir
+  `modele-donnees.md`, « Chaînage patient »).
 - **Q2 ↔ Q4** : le nom des variables de position diagnostique change selon le
-  champ PMSI (`DGN_PAL`/`DGN_REL` en MCO ; `FP_PEC`/`MOR_PRP`/`ETL_AFF` en
-  SSR) — champ multiple = vérifier la cohérence de la question posée pour
+  champ PMSI (`DGN_PAL`/`DGN_REL` en MCO ; `FP_PEC` [jusqu'en 2022, réforme
+  SMR]/`MOR_PRP`/`ETL_AFF` en SSR ; `DGN_PAL` de `T_HAD{aa}B` en HAD) — champ multiple = vérifier la cohérence de la question posée pour
   chacun.
 - **Q3a → Q13/Q14** : troncature CIM-10 à 3 caractères (sur-inclusion) vs
   codes complets (sous-inclusion) modifie la sensibilité du critère de
   jugement.
 - **Q13 (patients uniques) → Q11** : patients uniques comme unité de compte
-  impose le chaînage fiable (codes retour PMSI à `'0'`, ou couple
-  `BEN_NIR_PSA`/`BEN_RNG_GEM` non ambigu côté DCIR) en critère d'exclusion,
-  pas en option.
-- **Q5 (période < 2013) → Q3b/Q3c si source DCIR** : le dictionnaire Kwikly
-  ne documente précisément la disponibilité des colonnes DCIR que jusqu'en
-  2012 (colonne `*` ensuite) — signaler l'incertitude si le périmètre
-  demandé remonte avant 2013 et que la source DCIR est utilisée.
+  impose le chaînage fiable (codes retour PMSI à `'0'` et NIR fictifs exclus ;
+  côté DCIR, comptage sur `IR_BEN_R.BEN_IDT_ANO` et non sur le couple
+  `BEN_NIR_PSA`/`BEN_RNG_GEM`) en critère d'exclusion, pas en option.
+- **Q5 (période ≥ 2013) → Q3b/Q3c si source DCIR** : Kwikly détaille la
+  disponibilité des colonnes DCIR année par année de 2006 à 2012 seulement
+  (`*` ensuite) — signaler l'incertitude si une variable utilisée n'a aucun
+  `X` (apparue après 2012 à une date inconnue).
+- **Q5 (période avant 2009) → Q13/Q15 si PMSI** : dates réelles de séjour
+  absentes avant 2009, seulement le mois/année de sortie.
+- **Q5 (série traversant 2023) si SSR** : réforme SMR, `FP_PEC` non codé
+  après le 01/03/2023.
 
 ## 0. Finalité de l'analyse (à poser en premier)
 
@@ -87,10 +93,11 @@ du protocole).
      bien plus larges.
    En SSR, adapter : finalité principale de prise en charge (`FP_PEC`),
    manifestation morbide principale (`MOR_PRP`), affection étiologique
-   (`ETL_AFF`) — préciser lequel (ou lesquels) correspond au périmètre voulu.
+   (`ETL_AFF`) — préciser lequel (ou lesquels) correspond au périmètre voulu ;
+   `FP_PEC` n'existe plus à partir de 2023 (réforme SMR).
 5. **Période** : années couvertes. Bornes incluses. Si « évolution » : nombre
-   d'années souhaité. Si source DCIR et période < 2013 : signaler
-   l'incertitude sur la disponibilité exacte des colonnes (voir dépendances).
+   d'années souhaité. Signaler les ruptures de disponibilité (voir
+   dépendances : DCIR ≥ 2013, PMSI avant 2009, SSR après 2022).
 6. **Géographie** : France entière ; sinon résidence du patient
    (`BEN_RES_DPT`/`BDI_DEP` selon la source) ou localisation de
    l'établissement (`ETA_NUM`) — les deux ne donnent pas le même résultat.
@@ -109,18 +116,19 @@ du protocole).
 11. **Chaînage en erreur / qualité** : côté PMSI, codes retour de contrôle
     (`NIR_RET`, `NAI_RET`, `SEX_RET`, `SEJ_RET`, `FHO_RET`, `PMS_RET` depuis
     2005, `DAT_RET` depuis 2006, `COH_NAI_RET`/`COH_SEX_RET` depuis 2013)
-    différents de `'0'` — à
-    exclure si comptage de patients uniques, signaler la perte. Côté DCIR,
-    `DPN_QLF NOT IN (71,72)` et `PRS_DPN_QLP NOT IN (71,72)` (en gérant les
-    `NULL`).
+    différents de `'0'`, et `NIR_ANO_17` fictifs — à exclure si comptage de
+    patients uniques, signaler la perte. Côté DCIR, `DPN_QLF NOT IN (71,72)`
+    et `PRS_DPN_QLP NOT IN (71,72)` (en gérant les `NULL`), et exclusion des
+    établissements ex-DG en facturation directe (`ER_ETE_F.ETE_IND_TAA`).
 12. Autres selon contexte : séjours de la même journée, nouveau-nés, IVG,
-    prestations inter-établissements, décès en cours de séjour (proxy de
+    prestations inter-établissements (PIE, `SEJ_TYP = 'B'`, exclues par défaut en MCO), décès en cours de séjour (proxy de
     ré-hospitalisation faussé)…
 
 ## C. Critère de jugement (indicateur principal)
 
-13. **Unité de compte** : patients uniques (selon l'identifiant propre à la
-    source retenue — voir Q1/dépendances), séjours, prestations/lignes DCIR,
+13. **Unité de compte** : patients uniques (`NIR_ANO_17` en PMSI seul ;
+    `IR_BEN_R.BEN_IDT_ANO` dès que le DCIR ou les décès sont mobilisés — voir
+    Q1/dépendances), séjours, prestations/lignes DCIR,
     ou décès (CAUSE_DECES).
 14. **Type d'indicateur** : effectif brut ; taux pour 100 000 habitants ; taux
     standardisé (âge/sexe) ; évolution (série annuelle, % d'évolution).

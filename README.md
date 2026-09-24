@@ -20,7 +20,7 @@ protocole validé, puis script.
    vs séjours vs délivrances, exclusions (GHM en erreur, doublons, qualité de
    chaînage), stratification.
 3. **Elle soumet un protocole** synthétique, accompagné de ses **points de
-   vigilance** (chaînage inter-sources NIR_ANO_17/BEN_NIR_PSA/BEN_NIR_ANO,
+   vigilance** (chaînage inter-sources NIR_ANO_17/BEN_NIR_PSA/BEN_IDT_ANO,
    années Covid dans une tendance, petits effectifs...) :
    > **Population** : séjours MCO 2020–2023, DP en E10–E14, France entière.
    > **Exclusions** : GHM en erreur (CMD 90), doublons établissement, chaînage défaillant.
@@ -48,15 +48,18 @@ description de la base (métadonnées), sans aucune donnée patient.
 - Le modèle de données PMSI (tables suffixées par année de sortie) et DCIR
   (tables continues, filtrées par date/flux) : grain des tables, clés de
   jointure, chaînage patient.
-- Les pièges classiques du SNDS, signalés ou traités d'office : **trois
-  identifiants patient distincts** selon la source (PMSI = `NIR_ANO_17`, DCIR =
-  `BEN_NIR_PSA` + `BEN_RNG_GEM`, causes de décès = `BEN_NIR_ANO`), qualité de
-  chaînage PMSI (`NIR_RET`/`NAI_RET`/`SEX_RET`/`SEJ_RET`/`FHO_RET`/`PMS_RET`/`COH_SEX_RET`),
-  doublons APHP/APHM/HCL (2005-2017 uniquement), GHM en erreur (CMD 90),
-  filtres qualité DCIR (`DPN_QLF`+`PRS_DPN_QLP`, `CPL_MAJ_TOP`), clé composite
-  à 9 colonnes des tables DCIR, `ER_GEO_LOC_R` géolocalise le professionnel de
-  santé (`NUM_PS`) et non le patient, patients uniques pluriannuels par union
-  avant `n_distinct`.
+- Les pièges classiques du SNDS, signalés ou traités d'office : **chaînage
+  inter-sources** (PMSI `NIR_ANO_17` = DCIR `BEN_NIR_PSA`, individu et causes
+  de décès via `IR_BEN_R.BEN_IDT_ANO`), qualité de chaînage PMSI
+  (`NIR_RET`/`NAI_RET`/`SEX_RET`/`SEJ_RET`/`FHO_RET`/`PMS_RET`/`COH_SEX_RET`,
+  NIR fictifs), doublons APHP/APHM/HCL (2005-2017 uniquement), GHM en erreur
+  (CMD 90), filtres qualité DCIR (`DPN_QLF`+`PRS_DPN_QLP`, `ER_ETE_F`,
+  `CPL_MAJ_TOP`), clé composite à 9 colonnes des tables DCIR, marge de flux
+  DCIR, `ER_GEO_LOC_R` géolocalise le professionnel de santé
+  (`NUM_PS` = `PFS_EXE_NUM`) et non le patient, ruptures de disponibilité
+  (dates PMSI avant 2009, réforme SMR 2023), littéraux de date et limite des
+  1000 valeurs d'une liste `IN` sous Oracle, patients uniques pluriannuels
+  par union avant `n_distinct`.
 - L'existence et la disponibilité de **chaque table utilisée**, via l'index du
   dictionnaire Kwikly (`dictionnaire/index-tables.csv`) qui pointe vers la
   page de détail correspondante (variables, millésimes couverts), les tables
@@ -195,8 +198,8 @@ claude.ai avant utilisation :
   skill puisse consulter le dictionnaire Kwikly embarqué via des commandes shell) ;
 - sans outil de choix multiple équivalent à celui de Claude Code, la skill
   pose ses questions de clarification à l'écrit — répondre en langage naturel ;
-- le paquet est volumineux (dictionnaire Kwikly complet, plusieurs milliers de
-  pages HTML) — vérifier la limite de taille d'upload Skill du compte
+- le paquet est volumineux (dictionnaire Kwikly complet : environ 1 200 pages
+  HTML, ~9 Mo décompressés) — vérifier la limite de taille d'upload Skill du compte
   claude.ai avant de packager.
 
 Le zip n'est pas versionné (`dist/` est ignoré) : relancer le script après
@@ -237,7 +240,7 @@ skills/snds-query/
     ├── dictionnaire/
     │   ├── Kwikly/                 # export HTML Kwikly (pages catégorie + détail par table)
     │   └── index-tables.csv        # index plat categorie;table;libelle;chemin (généré)
-    ├── modele-donnees.md           # tables, jointures, chaînage (3 identifiants), pièges
+    ├── modele-donnees.md           # tables, jointures, chaînage patient (IR_BEN_R), pièges
     ├── clarifications.md           # checklist du statisticien
     ├── points-de-vigilance.md      # registres de risques méthodologiques (biais, instabilité...)
     ├── template.R                  # squelette de script R, patterns dbplyr/Oracle
@@ -249,8 +252,10 @@ skills/snds-query/
 Toute la connaissance spécifique à l'environnement (connexion, tables,
 mapping colonne, défauts) vit dans `skills/snds-query/references/profils/`.
 Pour un autre environnement (base locale, export parquet/DuckDB…), dupliquer
-`hdh_oracle.md`, adapter les valeurs, et la skill l'utilisera — le reste ne
-change pas. Les profils **font foi** : c'est aussi là que capitaliser vos
+`hdh_oracle.md`, adapter les valeurs, et la skill l'utilisera. Les templates
+(`template.R`/`.Rmd`) contiennent aussi des éléments propres à Oracle
+(`REGEXP_LIKE` via `sql()`, `ora_date()`, limite des listes `IN`) à adapter
+pour un autre SGBD. Les profils **font foi** : c'est aussi là que capitaliser vos
 mappings validés et pièges découverts, pour que les scripts suivants en
 profitent.
 
