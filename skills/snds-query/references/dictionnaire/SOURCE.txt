@@ -1,0 +1,3 @@
+Source : https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds
+Commit : 7bfdf37a3c6792240cb27e13d5cb19199e619fbe 2026-04-27
+Licence : MPL-2.0 (Mozilla Public License 2.0)

@@ -1,0 +1,16 @@
+snds-hdh-plugin
+Copyright (c) 2026 Basile Fuchs, CHU de Brest
+
+Le code et le contenu propres au plugin sont distribués sous licence MIT
+(voir LICENSE).
+
+Contenu tiers : dictionnaire SNDS (licence MPL-2.0)
+
+Les fichiers de skills/snds-query/references/dictionnaire/ (*.tsv) sont
+générés par skills/snds-query/scripts/build-dictionary.py à partir du dépôt schema-snds du
+Health Data Hub :
+    https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds
+Ils sont distribués sous Mozilla Public License 2.0, dont le texte figure dans
+skills/snds-query/references/dictionnaire/LICENSE-MPL-2.0.txt. La forme
+source est disponible à l'adresse ci-dessus ; le commit utilisé est indiqué
+dans skills/snds-query/references/dictionnaire/SOURCE.txt.

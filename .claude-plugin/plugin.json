@@ -1,7 +1,7 @@
 {
   "name": "snds-hdh",
   "description": "Statisticien DIM virtuel : traduit une question en langage naturel sur le SNDS (DCIR, PMSI, causes de décès) en protocole d'analyse validé interactivement, puis en script R dplyr/dbplyr pour la base nationale du Health Data Hub (Oracle).",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Basile Fuchs"
   },

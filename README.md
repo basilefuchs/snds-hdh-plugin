@@ -20,7 +20,7 @@ protocole validé, puis script.
    vs séjours vs délivrances, exclusions (GHM en erreur, doublons, qualité de
    chaînage), stratification.
 3. **Elle soumet un protocole** synthétique, accompagné de ses **points de
-   vigilance** (chaînage inter-sources NIR_ANO_17/BEN_NIR_PSA/BEN_NIR_ANO,
+   vigilance** (chaînage inter-sources NIR_ANO_17/BEN_NIR_PSA/BEN_IDT_ANO,
    années Covid dans une tendance, petits effectifs...) :
    > **Population** : séjours MCO 2020–2023, DP en E10–E14, France entière.
    > **Exclusions** : GHM en erreur (CMD 90), doublons établissement, chaînage défaillant.
@@ -35,8 +35,10 @@ protocole validé, puis script.
 
 Vous exécutez le script vous-même sur l'environnement du Health Data Hub :
 **Claude n'accède jamais aux données** — il ne voit que la question, le
-protocole et le code généré. Le dictionnaire embarqué (export Kwikly) est le
-document de description de la base (métadonnées), sans aucune donnée patient.
+protocole et le code généré. Le dictionnaire embarqué (généré depuis le
+dépôt open source [schema-snds](https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds)
+du Health Data Hub, licence MPL-2.0 — voir [Licence](#licence)) décrit la base
+(métadonnées), sans aucune donnée patient.
 
 ## Ce que la skill sait (et vérifie)
 
@@ -47,18 +49,21 @@ document de description de la base (métadonnées), sans aucune donnée patient.
 - Le modèle de données PMSI (tables suffixées par année de sortie) et DCIR
   (tables continues, filtrées par date/flux) : grain des tables, clés de
   jointure, chaînage patient.
-- Les pièges classiques du SNDS, signalés ou traités d'office : **trois
-  identifiants patient distincts** selon la source (PMSI = `NIR_ANO_17`, DCIR =
-  `BEN_NIR_PSA` + `BEN_RNG_GEM`, causes de décès = `BEN_NIR_ANO`), qualité de
-  chaînage PMSI (`NIR_RET`/`NAI_RET`/`SEX_RET`/`SEJ_RET`/`FHO_RET`/`PMS_RET`/`COH_SEX_RET`),
-  doublons APHP/APHM/HCL (2005-2017 uniquement), GHM en erreur (CMD 90),
-  filtres qualité DCIR (`DPN_QLF`+`PRS_DPN_QLP`, `CPL_MAJ_TOP`), clé composite
-  à 9 colonnes des tables DCIR, `ER_GEO_LOC_R` géolocalise le professionnel de
-  santé (`NUM_PS`) et non le patient, patients uniques pluriannuels par union
-  avant `n_distinct`.
-- L'existence et la disponibilité de **chaque table utilisée**, via l'index du
-  dictionnaire Kwikly (`dictionnaire/index-tables.csv`) qui pointe vers la
-  page de détail correspondante (variables, millésimes couverts), les tables
+- Les pièges classiques du SNDS, signalés ou traités d'office : **chaînage
+  inter-sources** (PMSI `NIR_ANO_17` = DCIR `BEN_NIR_PSA`, individu et causes
+  de décès via `IR_BEN_R.BEN_IDT_ANO`), qualité de chaînage PMSI
+  (`NIR_RET`/`NAI_RET`/`SEX_RET`/`SEJ_RET`/`FHO_RET`/`PMS_RET`/`COH_SEX_RET`,
+  NIR fictifs), doublons APHP/APHM/HCL (2005-2017 uniquement), GHM en erreur
+  (CMD 90), filtres qualité DCIR (`DPN_QLF`+`PRS_DPN_QLP`, `ER_ETE_F`,
+  `CPL_MAJ_TOP`), clé composite à 9 colonnes des tables DCIR, marge de flux
+  DCIR, `ER_GEO_LOC_R` géolocalise le professionnel de santé
+  (`NUM_PS` = `PFS_EXE_NUM`) et non le patient, ruptures de disponibilité
+  (dates PMSI avant 2009, réforme SMR 2023), littéraux de date et limite des
+  1000 valeurs d'une liste `IN` sous Oracle, patients uniques pluriannuels
+  par union avant `n_distinct`.
+- L'existence et la disponibilité de **chaque table et variable utilisées**,
+  via le dictionnaire plat (`dictionnaire/*.tsv` : tables, variables et
+  millésimes, jointures, nomenclatures et leurs valeurs), les tables
   de référence `IR_BEN_R` (filtres population) et `IR_IMB_R` (ALD), et les
   filtres PMSI HAD/RIP, validés au même titre que MCO/SSR.
 - La documentation officielle en ligne du Health Data Hub, consultée en
@@ -83,17 +88,85 @@ validation métier ni le respect du secret statistique sur les sorties.
 
 ## Installation
 
-### Option A — plugin (recommandé pour une équipe de DIM)
+### Option A — plugin Claude Code depuis le dépôt Git (recommandé pour une équipe de DIM)
 
-Publier ce dossier comme dépôt Git (GitHub/GitLab), puis dans Claude Code :
+Le dépôt [basilefuchs/snds-hdh-plugin](https://github.com/basilefuchs/snds-hdh-plugin)
+est à la fois une *marketplace* Claude Code (`snds-hdh-marketplace`, déclarée
+dans `.claude-plugin/marketplace.json`) et le plugin qu'elle distribue
+(`snds-hdh`). Le dépôt étant public, aucun identifiant n'est nécessaire.
+
+1. **Ouvrir Claude Code** (terminal : `claude` ; ou application desktop / IDE).
+2. **Déclarer le dépôt comme marketplace** :
+   ```
+   /plugin marketplace add basilefuchs/snds-hdh-plugin
+   ```
+   Variantes :
+   - URL complète : `/plugin marketplace add https://github.com/basilefuchs/snds-hdh-plugin.git`
+   - branche ou tag précis : `/plugin marketplace add https://github.com/basilefuchs/snds-hdh-plugin.git#main`
+   - clone local (poste sans accès GitHub, test d'une modification) :
+     `git clone https://github.com/basilefuchs/snds-hdh-plugin.git` puis
+     `/plugin marketplace add ./snds-hdh-plugin`
+3. **Installer le plugin** :
+   ```
+   /plugin install snds-hdh@snds-hdh-marketplace
+   ```
+   Claude Code demande la portée de l'installation :
+   - **user** : pour vous, dans tous vos projets ;
+   - **project** : pour tous les collaborateurs du projet courant (écrit dans
+     `.claude/settings.json`, à committer) ;
+   - **local** : pour vous seul, dans le projet courant.
+4. **Activer** : fermer le menu `/plugin` suffit (Claude Code exécute alors
+   `/reload-plugins`) ; sinon, taper `/reload-plugins`. Aucun redémarrage n'est
+   nécessaire.
+5. **Vérifier** : `/plugin` → onglet **Installed** doit lister `snds-hdh` ;
+   taper `/snds-hdh:` doit proposer `/snds-hdh:snds-hdh` (raccourci) et
+   `/snds-hdh:snds-query` (skill).
+
+Équivalent en ligne de commande, pour scripter l'installation d'un poste :
 
 ```
-/plugin marketplace add basilefuchs/snds-hdh-plugin
-/plugin install snds-hdh@snds-hdh-marketplace
+claude plugin marketplace add basilefuchs/snds-hdh-plugin
+claude plugin install snds-hdh@snds-hdh-marketplace --scope user
 ```
 
-Les mises à jour (dictionnaire, profils, nouveaux patterns validés) se diffusent
-ensuite à toute l'équipe via le dépôt.
+**Mettre à jour** (dictionnaire, profils, nouveaux patterns validés) :
+
+```
+/plugin marketplace update snds-hdh-marketplace
+/reload-plugins
+```
+
+`.claude-plugin/plugin.json` déclarant un champ `version`, Claude Code ne
+propose une nouvelle version que si ce numéro change : l'incrémenter à chaque
+livraison, sinon les postes déjà installés ne reçoivent pas les modifications.
+
+**Désinstaller** : `/plugin uninstall snds-hdh@snds-hdh-marketplace` ; retirer
+la marketplace : `/plugin marketplace remove snds-hdh-marketplace` (désinstalle
+aussi le plugin).
+
+**Déployer pour toute une équipe** : dans le dépôt de projet partagé par
+l'équipe, ajouter à `.claude/settings.json` puis committer :
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "snds-hdh-marketplace": {
+      "source": { "source": "github", "repo": "basilefuchs/snds-hdh-plugin" }
+    }
+  },
+  "enabledPlugins": {
+    "snds-hdh@snds-hdh-marketplace": true
+  }
+}
+```
+
+Chaque membre qui ouvre ce projet dans Claude Code (et accorde sa confiance au
+dossier) se voit proposer la marketplace et le plugin, sans étape manuelle.
+
+**Fork privé** (ex. dépôt interne au DIM) : Claude Code réutilise les
+identifiants git du poste (`gh auth setup-git`, clé SSH) ; pour que les mises à
+jour automatiques en arrière-plan fonctionnent, définir aussi la variable
+d'environnement `GITHUB_TOKEN`.
 
 ### Option B — skill personnelle
 
@@ -123,12 +196,11 @@ Génère `dist/snds-query.zip`, prêt à uploader tel quel. À vérifier côté 
 claude.ai avant utilisation :
 
 - la capacité **Code execution** doit être activée (nécessaire pour que la
-  skill puisse consulter le dictionnaire Kwikly embarqué via des commandes shell) ;
+  skill puisse interroger le dictionnaire embarqué via des commandes shell) ;
 - sans outil de choix multiple équivalent à celui de Claude Code, la skill
   pose ses questions de clarification à l'écrit — répondre en langage naturel ;
-- le paquet est volumineux (dictionnaire Kwikly complet, plusieurs milliers de
-  pages HTML) — vérifier la limite de taille d'upload Skill du compte
-  claude.ai avant de packager.
+- le paquet pèse environ 3 Mo décompressés (dictionnaire compris) — vérifier
+  la limite de taille d'upload Skill du compte claude.ai avant de packager.
 
 Le zip n'est pas versionné (`dist/` est ignoré) : relancer le script après
 toute modification de `skills/snds-query/` pour repackager.
@@ -138,9 +210,12 @@ toute modification de `skills/snds-query/` pour repackager.
 Poser une question SNDS en langage naturel — la skill se déclenche d'elle-même —
 ou l'invoquer explicitement :
 
-- installée en **plugin** (option A, Claude Code) : `/snds-hdh <question>` ;
+- installée en **plugin** (option A, Claude Code) : `/snds-hdh:snds-hdh <question>`
+  (les commandes et skills d'un plugin sont toujours préfixées par le nom du
+  plugin ; la skill seule : `/snds-hdh:snds-query`) ;
 - installée en **skill** dans Claude Code (options B et C) : `/snds-query <question>`
-  (le raccourci `/snds-hdh` fait partie du plugin et n'est pas copié avec la skill) ;
+  (le raccourci `/snds-hdh:snds-hdh` fait partie du plugin et n'est pas copié
+  avec la skill) ;
 - installée en **skill web** (option D, claude.ai) : pas d'invocation par
   commande vérifiée — poser directement la question, la skill se déclenche sur
   sa description.
@@ -154,18 +229,20 @@ Exemples de questions :
 ## Structure du dépôt
 
 ```
-commands/snds-hdh.md                # raccourci /snds-hdh (installation plugin uniquement)
+commands/snds-hdh.md                # raccourci /snds-hdh:snds-hdh (installation plugin uniquement)
 scripts/build-web-skill.ps1         # packaging skill web (option D) : skills/snds-query/ -> dist/snds-query.zip
-scripts/build-kwikly-index.ps1      # régénère dictionnaire/index-tables.csv depuis l'export Kwikly
 skills/snds-query/
 ├── SKILL.md                        # workflow : clarifier → protocole → script
+├── scripts/build-dictionary.py     # génère dictionnaire/*.tsv depuis un clone de schema-snds
 └── references/
     ├── profils/
     │   └── hdh_oracle.md           # environnement Health Data Hub (fait foi) : connexion, mapping, défauts
     ├── dictionnaire/
-    │   ├── Kwikly/                 # export HTML Kwikly (pages catégorie + détail par table)
-    │   └── index-tables.csv        # index plat categorie;table;libelle;chemin (généré)
-    ├── modele-donnees.md           # tables, jointures, chaînage (3 identifiants), pièges
+    │   ├── *.tsv                   # tables, variables, jointures, nomenclatures, valeurs (générés, MPL-2.0)
+    │   ├── README.md               # format des fichiers, source et licence
+    │   ├── SOURCE.txt              # commit schema-snds utilisé
+    │   └── LICENSE-MPL-2.0.txt     # licence de la source
+    ├── modele-donnees.md           # tables, jointures, chaînage patient (IR_BEN_R), pièges
     ├── clarifications.md           # checklist du statisticien
     ├── points-de-vigilance.md      # registres de risques méthodologiques (biais, instabilité...)
     ├── template.R                  # squelette de script R, patterns dbplyr/Oracle
@@ -177,31 +254,49 @@ skills/snds-query/
 Toute la connaissance spécifique à l'environnement (connexion, tables,
 mapping colonne, défauts) vit dans `skills/snds-query/references/profils/`.
 Pour un autre environnement (base locale, export parquet/DuckDB…), dupliquer
-`hdh_oracle.md`, adapter les valeurs, et la skill l'utilisera — le reste ne
-change pas. Les profils **font foi** : c'est aussi là que capitaliser vos
+`hdh_oracle.md`, adapter les valeurs, et la skill l'utilisera. Les templates
+(`template.R`/`.Rmd`) contiennent aussi des éléments propres à Oracle
+(`REGEXP_LIKE` via `sql()`, `ora_date()`, limite des listes `IN`) à adapter
+pour un autre SGBD. Les profils **font foi** : c'est aussi là que capitaliser vos
 mappings validés et pièges découverts, pour que les scripts suivants en
 profitent.
 
-## Mise à jour du dictionnaire (export Kwikly)
+## Mise à jour du dictionnaire
 
-Le dictionnaire n'est pas un simple CSV : c'est le **miroir HTML complet** de
-l'export Kwikly (une page par catégorie — DCIR, PMSI,
-CAUSE_DECES, CARTOGRAPHIE, VALEUR, AUTRE — et une page de détail par table,
-listant ses variables et les millésimes où elles existent).
+Le dictionnaire est généré depuis le dépôt open source
+[schema-snds](https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds)
+du Health Data Hub (Table Schema JSON par table + nomenclatures), qui fait
+foi pour la skill : à chaque génération, elle en tire une version fraîche par
+clone partiel si le réseau le permet, la copie embarquée servant de secours
+hors ligne. Cette source
+alimente aussi la [documentation officielle](https://documentation-snds.health-data-hub.fr/)
+et le [dictionnaire interactif](http://dico-snds.health-data-hub.fr/).
 
-1. Remplacer le contenu de `skills/snds-query/references/dictionnaire/Kwikly/`
-   par le nouvel export Kwikly du Health Data Hub, en conservant la même
-   arborescence (les 6 pages de catégorie + leurs sous-dossiers par table).
-2. Régénérer l'index plat des tables :
+1. Cloner (ou mettre à jour) la source :
    ```
-   powershell -File scripts/build-kwikly-index.ps1
+   git clone --depth 1 https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds.git
    ```
-   Produit `dictionnaire/index-tables.csv` (`categorie;table;libelle;chemin`),
-   que la skill utilise pour retrouver la bonne page de détail sans parcourir
-   tout le miroir HTML. Le script est **idempotent** : à relancer à chaque
-   rafraîchissement de l'export (date affichée en pied de page des pages
-   Kwikly, ex. « Version du 19/06/2026 »).
+2. Régénérer les fichiers de la skill (Python 3, bibliothèque standard) :
+   ```
+   python3 skills/snds-query/scripts/build-dictionary.py schema-snds
+   ```
+   Produit `tables.tsv`, `variables.tsv`, `jointures.tsv`,
+   `nomenclatures.tsv`, `valeurs.tsv` et `SOURCE.txt` (commit utilisé) dans
+   `skills/snds-query/references/dictionnaire/`. Idempotent.
+3. Incrémenter `version` dans `.claude-plugin/plugin.json` avant de pousser,
+   pour que les installations existantes reçoivent la mise à jour (voir
+   Option A, « Mettre à jour »).
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+Le code et le contenu propres au plugin (skill, références, templates,
+scripts) sont sous licence MIT, © 2026 Basile Fuchs et CHU de Brest — voir
+[LICENSE](LICENSE) et [NOTICE](NOTICE).
+
+**Le dictionnaire embarqué n'est pas sous licence MIT.** Les fichiers de
+`skills/snds-query/references/dictionnaire/` (`*.tsv`) sont dérivés du dépôt
+[schema-snds](https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds)
+du Health Data Hub et distribués, comme lui, sous
+[Mozilla Public License 2.0](skills/snds-query/references/dictionnaire/LICENSE-MPL-2.0.txt) ;
+la source complète est disponible à cette adresse (commit utilisé :
+`dictionnaire/SOURCE.txt`).
