@@ -55,8 +55,8 @@ de se fier uniquement à un extrait figé, en particulier pour :
 - **`snds/tables/`** — schéma officiel des tables (variables, types, clés),
   alimentant le dictionnaire interactif
   https://health-data-hub.shinyapps.io/dico-snds/ ; à croiser avec le
-  dictionnaire Kwikly embarqué (`references/dictionnaire/`) en cas de doute
-  ou d'absence dans Kwikly.
+  dictionnaire embarqué (`references/dictionnaire/`, généré depuis la même
+  source schema-snds) en cas de doute ou d'absence.
 - Les ~80 fiches thématiques (`snds/fiches/`) pour un sujet précis (chaînage
   mère-enfant, cartographie des pathologies, ALD…) non couvert par ce profil.
 
@@ -174,7 +174,7 @@ dépasser 1000 codes, limite Oracle d'une liste `IN (...)` (ORA-01795).
 | Naissance (année / mois)                      | `BEN_NAI_ANN` / `BEN_NAI_MOI` |
 
 `BEN_DCD_DTE` vaut `01-01-1600` quand **aucun décès n'est connu** — patient
-vivant OU date manquante (Kwikly signale aussi `0001-01-01` pour une donnée
+vivant OU date manquante (valeur `0001-01-01` aussi possible pour une donnée
 non valide). Filtre « pas de décès connu » :
 `EXTRACT(YEAR FROM BEN_DCD_DTE) IN (1600, 1)`. Ce n'est pas un statut vital
 exhaustif : il n'est fiable que pour le régime général hors SLM depuis juillet
@@ -186,7 +186,7 @@ HDH, fiche filtres) — à appliquer pour constituer une base bénéficiaires
 propre, notamment en vue d'un chaînage :
 - Identifiant certifié : `BEN_CDI_NIR = '00'` (certifié), ou provisoire
   `BEN_CDI_NIR IN ('03', '04')` selon la tolérance voulue.
-- Naissance/sexe renseignés : `BEN_NAI_ANN <> '1600'` (même convention
+- Naissance/sexe renseignés : `BEN_NAI_ANN NOT IN ('1600', '0001')` (même convention
   sentinelle que `BEN_DCD_DTE`) et `BEN_SEX_COD <> 0`.
 - Bénéficiaire actif sur la période : `MAX_TRT_DTD >= DATE '<AAAA-MM-JJ début>'`
   (dernière date de traitement d'une prestation ; en dbplyr
@@ -228,13 +228,13 @@ HDH, fiche filtres) :
 Attention : cette table géolocalise le **prescripteur/exécutant**, pas le
 patient. Plusieurs lignes possibles par `NUM_PS` (colonne `CABINET`) :
 vérifier l'unicité avant la jointure, sous peine de dupliquer les prestations. Pour la résidence du patient, utiliser `ER_PRS_F.BEN_RES_COM`/`BEN_RES_DPT`.
-Table présente uniquement à partir des millésimes récents (aucun `X` avant la
-colonne `*` dans le dictionnaire Kwikly) — vérifier avant d'utiliser sur une
-période ancienne.
+Table absente du dictionnaire schema-snds (décrite ici d'après l'export
+Kwikly de la CNAM) et présente seulement sur les millésimes récents —
+vérifier sa structure et sa profondeur en base avant de l'utiliser.
 
 ## PMSI — MCO, tables clés (millésime réel = 2 chiffres, ex. `T_MCO23B`)
 
-| Table Kwikly (générique `AA`) | Rôle                              | Clé de jointure |
+| Table (générique `aa`) | Rôle                              | Clé de jointure |
 |---|---|---|
 | `T_MCO{aa}C` | Chaînage / codes retour (1 ligne/séjour) | `(ETA_NUM, RSA_NUM)` |
 | `T_MCO{aa}B` | Séjour / RSA (1 ligne/séjour : DP, DR, GHM, durée, `SEJ_TYP`) | `(ETA_NUM, RSA_NUM)` |
@@ -353,13 +353,13 @@ Filtres validés via la documentation officielle HDH (fiche filtres), sans
 script local de référence — seules les tables et variables listées
 ci-dessous sont confirmées ; pour toute autre table de la famille `T_HAD{aa}*`
 (diagnostics, actes), vérifier sa structure exacte dans le dictionnaire
-Kwikly (`references/dictionnaire/Kwikly/PMSI/`) avant usage.
+(`references/dictionnaire/variables.tsv`) avant usage.
 
 Clé technique HAD : `(ETA_NUM_EPMSI, RHAD_NUM)` — pas de colonne `ETA_NUM`.
 
 | Table | Rôle | Filtres qualité |
 |---|---|---|
-| `T_HAD{aa}B` | Séquence (RAPSS) : diagnostic principal `DGN_PAL`, modes de prise en charge `PEC_PAL`/`PEC_ASS` | `DGN_PAL` absent de Kwikly pour 2012-2013 : vérifier en base (`COUNT(DGN_PAL)`) avant toute série HAD ; DA 2007-2009 en `DGN_PAL1`..`DGN_PAL7` |
+| `T_HAD{aa}B` | Séquence (RAPSS) : diagnostic principal `DGN_PAL`, modes de prise en charge `PEC_PAL`/`PEC_ASS` | `DGN_PAL` absent de l'export Kwikly pour 2012-2013 mais déclaré continu dans schema-snds : vérifier en base (`COUNT(DGN_PAL)`) avant toute série HAD ; DA 2007-2009 en `DGN_PAL1`..`DGN_PAL7` |
 | `T_HAD{aa}GRP` | Groupage de la séquence | Exclusion des sous-séquences non groupées : `GHT_NUM <> '99'` |
 | `T_HAD{aa}A` / `T_HAD{aa}D` | Actes / diagnostics associés | Tables existantes depuis 2010 seulement |
 | `T_HAD{aa}C` | Chaînage / en-tête séjour | Mêmes filtres de chaînage que MCO (NIR fictifs compris) : `NIR_RET='0' AND NAI_RET='0' AND SEX_RET='0' AND SEJ_RET='0' AND FHO_RET='0' AND PMS_RET='0'` (depuis 2005), `+ DAT_RET='0'` (depuis 2006), `+ COH_NAI_RET='0' AND COH_SEX_RET='0'` (depuis 2013). Pas de piège doublon FINESS (spécifique au MCO). |
@@ -370,7 +370,7 @@ Filtres validés via la documentation officielle HDH (fiche filtres), sans
 script local de référence — seules les tables et variables listées
 ci-dessous sont confirmées ; pour toute autre table de la famille `T_RIP{aa}*`
 (diagnostics, actes), vérifier sa structure exacte dans le dictionnaire
-Kwikly (`references/dictionnaire/Kwikly/PMSI/`) avant usage.
+(`references/dictionnaire/variables.tsv`) avant usage.
 
 Clé technique RIP : `(ETA_NUM_EPMSI, RIP_NUM)` — pas de colonne `ETA_NUM`.
 Actes CCAM (`T_RIP{aa}CCAM`) depuis 2017 seulement.
@@ -404,7 +404,7 @@ demande explicite.
 |--------------------------------------------------|------------------------------------------------|
 | `DPN_QLF`/`PRS_DPN_QLP` potentiellement `NULL` | `filter((is.na(DPN_QLF) | !DPN_QLF %in% c(71,72)) & (is.na(PRS_DPN_QLP) | !PRS_DPN_QLP %in% c(71,72)))` — un simple `DPN_QLF != 71` exclut silencieusement les lignes `NULL` en SQL Oracle (logique ternaire), et laisse passer le code 72 ainsi que les doublons visibles seulement sur `PRS_DPN_QLP` |
 | `ORDER BY` sur colonne contenant des `NULL` (Oracle) | Oracle trie les `NULL` en dernier (SAS les traite comme valeur minimale) — éviter de trier côté Oracle sur une colonne à `NULL`, reporter le tri après `collect()` |
-| Colonnes annuelles DCIR détaillées 2006-2012 seulement dans Kwikly (`*` ensuite) | Une variable sans aucun `X` est apparue après 2012 à une date inconnue : pour un périmètre ≥ 2013 qui l'utilise, vérifier empiriquement (`COUNT(*)` par année de `FLX_DIS_DTD`) |
+| Millésimes DCIR déclarés ≠ alimentation effective | Pour une variable DCIR récente ou peu utilisée, vérifier empiriquement (`COUNT(*)` par année de `FLX_DIS_DTD`) |
 | Chaînage inter-sources | PMSI `NIR_ANO_17` = DCIR `BEN_NIR_PSA` ; individu = `IR_BEN_R.BEN_IDT_ANO` ; causes de décès via `BEN_IDT_ANO` (appariement incomplet) — voir `modele-donnees.md`, « Chaînage patient » |
 | Requêtes de la fiche filtres HDH (MySQL) | Traduire `RIGHT()` → `SUBSTR(x, -n)` et les littéraux de date → `DATE 'AAAA-MM-JJ'` |
 | Liste `IN (...)` de plus de 1000 valeurs | ORA-01795 : `semi_join` sur une requête lazy ou une table temporaire |
@@ -429,6 +429,6 @@ demande explicite.
 | Exclusion GHM/GME en erreur             | `SUBSTR(GRG_GHM,1,2) <> '90'` (MCO) ; SSR 2013+ : `GRG_GME NOT LIKE '90%'` (`T_SSR{aa}B`) ou `GME_COD NOT LIKE '90%'` (`T_SSR{aa}GME`), un seul des deux |
 | Filtres qualité DCIR par défaut         | `DPN_QLF NOT IN (71,72)` et `PRS_DPN_QLP NOT IN (71,72)` (en gérant les `NULL`) ; ES ex-DG en facturation directe exclus via `ER_ETE_F.ETE_IND_TAA` ; `CPL_MAJ_TOP <> 2` optionnel (dénombrement) |
 | Marge de flux DCIR (`FLX_DIS_DTD`)      | Au moins 5 mois de données après la période clinique (6 flux) ; 12 pour une extraction exhaustive ; jamais plus de 24 |
-| Filtres qualité population (`IR_BEN_R`) | `BEN_CDI_NIR = '00'`, `BEN_NAI_ANN <> '1600'`, `BEN_SEX_COD <> 0` — à appliquer avant tout chaînage ou comptage de patients uniques |
+| Filtres qualité population (`IR_BEN_R`) | `BEN_CDI_NIR = '00'`, `BEN_NAI_ANN NOT IN ('1600', '0001')`, `BEN_SEX_COD <> 0` — à appliquer avant tout chaînage ou comptage de patients uniques |
 | Parallélisation par millésime           | `future::plan(future::multisession(workers = 4))` (générique — adapter à la machine de l'utilisateur) |
 | Persistance locale                      | Jamais d'export local avec identifiants (ID, date, localisation) — voir `points-de-vigilance.md` |

@@ -49,7 +49,7 @@ seuils de robustesse, proposer un lissage ou un regroupement de périodes/zones.
 ## Diffusion
 
 Si la finalité implique une sortie externe, secret statistique (aucune
-cellule < 11) à prévoir dans les sorties — seuil `SEUIL <- 11`, convention
+cellule de 1 à 10 ; 0 reste diffusable sauf règle contraire du projet) à prévoir dans les sorties — seuil `SEUIL <- 11`, convention
 usuelle sur les extractions SNDS.
 
 ## Chaînage inter-source

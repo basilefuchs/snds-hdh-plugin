@@ -34,10 +34,9 @@ valable).
   impose le chaînage fiable (codes retour PMSI à `'0'` et NIR fictifs exclus ;
   côté DCIR, comptage sur `IR_BEN_R.BEN_IDT_ANO` et non sur le couple
   `BEN_NIR_PSA`/`BEN_RNG_GEM`) en critère d'exclusion, pas en option.
-- **Q5 (période ≥ 2013) → Q3b/Q3c si source DCIR** : Kwikly détaille la
-  disponibilité des colonnes DCIR année par année de 2006 à 2012 seulement
-  (`*` ensuite) — signaler l'incertitude si une variable utilisée n'a aucun
-  `X` (apparue après 2012 à une date inconnue).
+- **Q5 → Q3b/Q3c si source DCIR** : les millésimes déclarés d'une variable
+  DCIR ne garantissent pas son alimentation chaque année — signaler
+  l'incertitude pour une variable récente ou peu utilisée.
 - **Q5 (période avant 2009) → Q13/Q15 si PMSI** : dates réelles de séjour
   absentes avant 2009, seulement le mois/année de sortie.
 - **Q5 (série traversant 2023) si SSR** : réforme SMR, `FP_PEC` non codé
@@ -63,7 +62,7 @@ valable).
    « hospitalisation ») ou MCO + SSR ; HAD et RIP (psychiatrie) sur demande
    explicite (filtres qualité validés via la documentation officielle HDH,
    mais tables de diagnostics/actes détaillées à vérifier au cas par cas
-   dans le dictionnaire Kwikly, voir `modele-donnees.md`).
+   dans le dictionnaire, voir `modele-donnees.md`).
 3a. **Codes CIM-10** (si le phénomène est une pathologie) : proposer une
    liste précise et la faire valider. Si WebSearch est disponible, chercher
    d'abord une définition publiée (Santé publique France, cartographie des
@@ -97,7 +96,7 @@ valable).
    `FP_PEC` n'existe plus à partir de 2023 (réforme SMR).
 5. **Période** : années couvertes. Bornes incluses. Si « évolution » : nombre
    d'années souhaité. Signaler les ruptures de disponibilité (voir
-   dépendances : DCIR ≥ 2013, PMSI avant 2009, SSR après 2022).
+   dépendances : variables DCIR récentes, PMSI avant 2009, SSR après 2022).
 6. **Géographie** : France entière ; sinon résidence du patient
    (`BEN_RES_DPT`/`BDI_DEP` selon la source) ou localisation de
    l'établissement (`ETA_NUM`) — les deux ne donnent pas le même résultat.

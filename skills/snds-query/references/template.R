@@ -30,8 +30,8 @@
 #   c'est la localisation du PS, PAS celle du patient
 # ==========================================
 # NB : lister ci-dessus UNIQUEMENT les éléments réellement utilisés par le script,
-#      vérifiés dans le dictionnaire (index-tables.csv puis page de détail
-#      dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html), millésimes compris.
+#      vérifiés dans le dictionnaire (variables.tsv), millésimes compris.
+# Dictionnaire : schema-snds (Health Data Hub, MPL-2.0), commit <SOURCE.txt>
 
 library(ROracle)
 library(dplyr)
@@ -317,7 +317,9 @@ stopifnot(all(derniere$nb_sejours == resultat_annuel$nb_sejours[match(derniere$a
 # finalité (bloc 0 des clarifications) implique une diffusion externe --
 # y compris l'attrition (effectifs ET nombres d'exclus entre étapes).
 verifier_seuil <- function(df, col_effectif, seuil = SEUIL) {
-  n_masque <- sum(df[[col_effectif]] < seuil, na.rm = TRUE)
+  # 0 est diffusable (convention usuelle : secret sur les effectifs de 1 à
+  # seuil - 1) ; à ajuster si le projet HDH impose une autre règle.
+  n_masque <- sum(df[[col_effectif]] > 0 & df[[col_effectif]] < seuil, na.rm = TRUE)
   if (n_masque > 0) {
     warning(sprintf(
       "%d cellule(s) < %d (%s) - à regrouper sous 'Autre' avant toute diffusion externe.",

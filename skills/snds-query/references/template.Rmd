@@ -193,7 +193,7 @@ stopifnot(all(derniere$nb_sejours == resultat_annuel$nb_sejours[match(derniere$a
 # ==== SECRET STATISTIQUE — AVANT tout affichage ====
 # stop() plutôt que warning() : warning = FALSE (chunk Setup) masquerait l'alerte.
 verifier_seuil <- function(df, col_effectif, seuil = SEUIL) {
-  n_masque <- sum(df[[col_effectif]] < seuil, na.rm = TRUE)
+  n_masque <- sum(df[[col_effectif]] > 0 & df[[col_effectif]] < seuil, na.rm = TRUE)   # 0 diffusable
   if (DIFFUSION_EXTERNE && n_masque > 0) {
     stop(sprintf(
       "%d cellule(s) < %d (%s) - regrouper sous 'Autre' avant diffusion externe.",

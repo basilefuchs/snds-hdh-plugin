@@ -35,9 +35,10 @@ protocole validé, puis script.
 
 Vous exécutez le script vous-même sur l'environnement du Health Data Hub :
 **Claude n'accède jamais aux données** — il ne voit que la question, le
-protocole et le code généré. Le dictionnaire embarqué (export Kwikly,
-propriété de la CNAM — voir [Licence](#licence)) est le document de
-description de la base (métadonnées), sans aucune donnée patient.
+protocole et le code généré. Le dictionnaire embarqué (généré depuis le
+dépôt open source [schema-snds](https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds)
+du Health Data Hub, licence MPL-2.0 — voir [Licence](#licence)) décrit la base
+(métadonnées), sans aucune donnée patient.
 
 ## Ce que la skill sait (et vérifie)
 
@@ -60,9 +61,9 @@ description de la base (métadonnées), sans aucune donnée patient.
   (dates PMSI avant 2009, réforme SMR 2023), littéraux de date et limite des
   1000 valeurs d'une liste `IN` sous Oracle, patients uniques pluriannuels
   par union avant `n_distinct`.
-- L'existence et la disponibilité de **chaque table utilisée**, via l'index du
-  dictionnaire Kwikly (`dictionnaire/index-tables.csv`) qui pointe vers la
-  page de détail correspondante (variables, millésimes couverts), les tables
+- L'existence et la disponibilité de **chaque table et variable utilisées**,
+  via le dictionnaire plat (`dictionnaire/*.tsv` : tables, variables et
+  millésimes, jointures, nomenclatures et leurs valeurs), les tables
   de référence `IR_BEN_R` (filtres population) et `IR_IMB_R` (ALD), et les
   filtres PMSI HAD/RIP, validés au même titre que MCO/SSR.
 - La documentation officielle en ligne du Health Data Hub, consultée en
@@ -195,12 +196,11 @@ Génère `dist/snds-query.zip`, prêt à uploader tel quel. À vérifier côté 
 claude.ai avant utilisation :
 
 - la capacité **Code execution** doit être activée (nécessaire pour que la
-  skill puisse consulter le dictionnaire Kwikly embarqué via des commandes shell) ;
+  skill puisse interroger le dictionnaire embarqué via des commandes shell) ;
 - sans outil de choix multiple équivalent à celui de Claude Code, la skill
   pose ses questions de clarification à l'écrit — répondre en langage naturel ;
-- le paquet est volumineux (dictionnaire Kwikly complet : environ 1 200 pages
-  HTML, ~9 Mo décompressés) — vérifier la limite de taille d'upload Skill du compte
-  claude.ai avant de packager.
+- le paquet pèse environ 3 Mo décompressés (dictionnaire compris) — vérifier
+  la limite de taille d'upload Skill du compte claude.ai avant de packager.
 
 Le zip n'est pas versionné (`dist/` est ignoré) : relancer le script après
 toute modification de `skills/snds-query/` pour repackager.
@@ -231,15 +231,17 @@ Exemples de questions :
 ```
 commands/snds-hdh.md                # raccourci /snds-hdh:snds-hdh (installation plugin uniquement)
 scripts/build-web-skill.ps1         # packaging skill web (option D) : skills/snds-query/ -> dist/snds-query.zip
-scripts/build-kwikly-index.ps1      # régénère dictionnaire/index-tables.csv depuis l'export Kwikly
 skills/snds-query/
 ├── SKILL.md                        # workflow : clarifier → protocole → script
+├── scripts/build-dictionary.py     # génère dictionnaire/*.tsv depuis un clone de schema-snds
 └── references/
     ├── profils/
     │   └── hdh_oracle.md           # environnement Health Data Hub (fait foi) : connexion, mapping, défauts
     ├── dictionnaire/
-    │   ├── Kwikly/                 # export HTML Kwikly (pages catégorie + détail par table)
-    │   └── index-tables.csv        # index plat categorie;table;libelle;chemin (généré)
+    │   ├── *.tsv                   # tables, variables, jointures, nomenclatures, valeurs (générés, MPL-2.0)
+    │   ├── README.md               # format des fichiers, source et licence
+    │   ├── SOURCE.txt              # commit schema-snds utilisé
+    │   └── LICENSE-MPL-2.0.txt     # licence de la source
     ├── modele-donnees.md           # tables, jointures, chaînage patient (IR_BEN_R), pièges
     ├── clarifications.md           # checklist du statisticien
     ├── points-de-vigilance.md      # registres de risques méthodologiques (biais, instabilité...)
@@ -259,25 +261,28 @@ pour un autre SGBD. Les profils **font foi** : c'est aussi là que capitaliser v
 mappings validés et pièges découverts, pour que les scripts suivants en
 profitent.
 
-## Mise à jour du dictionnaire (export Kwikly)
+## Mise à jour du dictionnaire
 
-Le dictionnaire n'est pas un simple CSV : c'est le **miroir HTML complet** de
-l'export Kwikly (une page par catégorie — DCIR, PMSI,
-CAUSE_DECES, CARTOGRAPHIE, VALEUR, AUTRE — et une page de détail par table,
-listant ses variables et les millésimes où elles existent).
+Le dictionnaire est généré depuis le dépôt open source
+[schema-snds](https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds)
+du Health Data Hub (Table Schema JSON par table + nomenclatures), qui fait
+foi pour la skill : à chaque génération, elle en tire une version fraîche par
+clone partiel si le réseau le permet, la copie embarquée servant de secours
+hors ligne. Cette source
+alimente aussi la [documentation officielle](https://documentation-snds.health-data-hub.fr/)
+et le [dictionnaire interactif](http://dico-snds.health-data-hub.fr/).
 
-1. Remplacer le contenu de `skills/snds-query/references/dictionnaire/Kwikly/`
-   par le nouvel export Kwikly de la CNAM, en conservant la même
-   arborescence (les 6 pages de catégorie + leurs sous-dossiers par table).
-2. Régénérer l'index plat des tables :
+1. Cloner (ou mettre à jour) la source :
    ```
-   powershell -File scripts/build-kwikly-index.ps1
+   git clone --depth 1 https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds.git
    ```
-   Produit `dictionnaire/index-tables.csv` (`categorie;table;libelle;chemin`),
-   que la skill utilise pour retrouver la bonne page de détail sans parcourir
-   tout le miroir HTML. Le script est **idempotent** : à relancer à chaque
-   rafraîchissement de l'export (date affichée en pied de page des pages
-   Kwikly, ex. « Version du 19/06/2026 »).
+2. Régénérer les fichiers de la skill (Python 3, bibliothèque standard) :
+   ```
+   python3 skills/snds-query/scripts/build-dictionary.py schema-snds
+   ```
+   Produit `tables.tsv`, `variables.tsv`, `jointures.tsv`,
+   `nomenclatures.tsv`, `valeurs.tsv` et `SOURCE.txt` (commit utilisé) dans
+   `skills/snds-query/references/dictionnaire/`. Idempotent.
 3. Incrémenter `version` dans `.claude-plugin/plugin.json` avant de pousser,
    pour que les installations existantes reçoivent la mise à jour (voir
    Option A, « Mettre à jour »).
@@ -288,12 +293,10 @@ Le code et le contenu propres au plugin (skill, références, templates,
 scripts) sont sous licence MIT, © 2026 Basile Fuchs et CHU de Brest — voir
 [LICENSE](LICENSE) et [NOTICE](NOTICE).
 
-**Le dictionnaire des données du SNDS n'est pas couvert par cette licence.**
-L'export Kwikly (`skills/snds-query/references/dictionnaire/Kwikly/`, logos
-compris), l'index qui en est dérivé (`dictionnaire/index-tables.csv`) et les
-versions JSON de ce dictionnaire (exports CNAM ou conversions locales au format
-pivot [CHU-Brest/kwikly-json](https://github.com/CHU-Brest/kwikly-json)) sont
-la propriété de la Caisse nationale de l'Assurance Maladie (CNAM). Leur
-réutilisation et leur redistribution relèvent des conditions fixées par la
-CNAM, y compris lorsqu'ils sont diffusés avec ce plugin (dépôt Git, paquet
-`dist/snds-query.zip`).
+**Le dictionnaire embarqué n'est pas sous licence MIT.** Les fichiers de
+`skills/snds-query/references/dictionnaire/` (`*.tsv`) sont dérivés du dépôt
+[schema-snds](https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds)
+du Health Data Hub et distribués, comme lui, sous
+[Mozilla Public License 2.0](skills/snds-query/references/dictionnaire/LICENSE-MPL-2.0.txt) ;
+la source complète est disponible à cette adresse (commit utilisé :
+`dictionnaire/SOURCE.txt`).

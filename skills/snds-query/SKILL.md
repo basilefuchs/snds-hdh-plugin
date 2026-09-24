@@ -59,15 +59,16 @@ répertoire de base de la skill, pas au répertoire courant de l'utilisateur.
    possible, se rabattre sur les ressources locales (1, 3 à 8), en signalant
    à l'utilisateur qu'elles n'ont pas été recroisées avec la documentation
    officielle pour cette génération.
-3. Le dictionnaire des tables/variables SNDS : `references/dictionnaire/`.
-   Deux niveaux (voir étape 2) : `index-tables.csv` pour trouver la ou les
-   tables pertinentes, puis la page HTML détail correspondante dans
-   `references/dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html` pour la liste
-   exhaustive des colonnes et leur disponibilité par millésime. Il n'existe
-   **pas** de CSV variable-par-variable unique : la vérification se fait
-   table par table via les pages HTML. La section
-   `snds/tables/` de la documentation officielle (ressource 2) est un schéma
-   alternatif à croiser en cas de doute ou d'absence dans Kwikly.
+3. Le dictionnaire des tables/variables SNDS : `references/dictionnaire/`,
+   fichiers TSV générés depuis le dépôt open source **schema-snds** du Health
+   Data Hub (https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds,
+   licence MPL-2.0), **qui fait foi** : la skill en tire une version fraîche
+   à chaque génération si le réseau le permet, sinon utilise la copie
+   embarquée (commit dans `SOURCE.txt`) — voir étape 2. Contenu : tables, variables
+   (libellé, type, nomenclature, millésimes, observations), jointures,
+   nomenclatures et valeurs des petites nomenclatures (voir étape 2). La
+   section `snds/tables/` de la documentation officielle (ressource 2), qui
+   est générée depuis le même dépôt, sert à croiser en cas de doute.
 4. `references/modele-donnees.md` — synthèse du modèle de données : les 6
    catégories SNDS, tables clés par catégorie, chaînage patient (table de passage
    `IR_BEN_R`, individu `BEN_IDT_ANO`), raccourcis de classification, pièges génériques.
@@ -149,75 +150,85 @@ trancher seul.
 
 ### 2. Interroger le dictionnaire
 
-Le dictionnaire SNDS est l'export HTML « Kwikly » de la CNAM : 6 catégories (DCIR — 17
-tables, PMSI — 189 tables, CAUSE_DECES — 2 tables, CARTOGRAPHIE — 5 tables,
-VALEUR — 478 tables de valeurs/codes, AUTRE — 13 tables de référence propres
-indexées sous cette catégorie, notamment `IR_BEN_R` (référentiel
-bénéficiaire) et `IR_PHA_R` (référentiel médicament) ; le dossier
-Kwikly/AUTRE/ contient aussi d'anciennes copies des 478 pages détail
-VALEUR, datées du 19/03/2026 : les ignorer, les pages à jour sont sous
-Kwikly/VALEUR/ et c'est là que pointe l'index). Il n'y a
-pas de CSV variable-par-variable exhaustif : la recherche se fait en **deux
-niveaux**.
-
-**Niveau 1 — trouver la ou les tables candidates**, dans
-`references/dictionnaire/index-tables.csv` (colonnes `categorie;table;libelle;chemin`) :
+**Source prioritaire : schema-snds à jour.** Au début de l'étape, tenter un
+clone partiel (≈ 7 Mo, une dizaine de secondes) puis régénérer le dictionnaire
+dans un répertoire temporaire, depuis le répertoire de base de la skill :
 
 ```bash
-# Chercher une notion dans les libellés de table (ex. "codage CCAM")
-grep -i "ccam" references/dictionnaire/index-tables.csv
-
-# Lister toutes les tables d'une catégorie (ex. DCIR) — champs entre guillemets
-grep '^"DCIR";' references/dictionnaire/index-tables.csv
-
-# Chercher un nom de table connu (ex. les tables MCO du PMSI)
-grep -i "T_MCO" references/dictionnaire/index-tables.csv
+TMP=$(mktemp -d)
+git clone -q --depth 1 --filter=blob:none --sparse \
+  https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds.git "$TMP/schema-snds" &&
+git -C "$TMP/schema-snds" sparse-checkout set --no-cone '/schemas/' '/nomenclatures/*/*.json' '/LICENSE' &&
+python3 scripts/build-dictionary.py "$TMP/schema-snds" --out "$TMP/dico" &&
+D="$TMP/dico" || D=references/dictionnaire
+echo "Dictionnaire utilisé : $D"; cat "$D/SOURCE.txt"
 ```
 
-Si `index-tables.csv` est absent ou semble périmé, chercher directement dans
-les 6 pages d'index de la catégorie concernée (`references/dictionnaire/Kwikly/DCIR.html`,
-`PMSI.html`, `CAUSE_DECES.html`, `CARTOGRAPHIE.html`, `VALEUR.html`,
-`AUTRE.html`) : chaque ligne y donne le nom de table et son libellé.
+- Succès : utiliser `$D` (version fraîche) pour `tables.tsv`,
+  `variables.tsv`, `jointures.tsv`, `nomenclatures.tsv` ; `valeurs.tsv`
+  n'est pas régénéré par le clone partiel, le lire dans
+  `references/dictionnaire/`.
+- Échec (pas de réseau, pas de git ou de python) : utiliser la copie
+  embarquée `references/dictionnaire/` et **le signaler à l'utilisateur**, avec
+  la date de `SOURCE.txt`, dans la synthèse du protocole.
+- Citer dans le bloc « PROFIL DE BASE » du script la source utilisée
+  (schema-snds, commit de `SOURCE.txt`).
 
-**Niveau 2 — vérifier les colonnes et leur disponibilité par millésime**,
-dans la page détail indiquée par `chemin` (grep ciblé en priorité ; Read
-avec offset/limit si le tableau doit être vu en entier — certaines pages
-dépassent 200 Ko), ex.
-`references/dictionnaire/Kwikly/DCIR/ER_CAM_F.html`. Chaque page donne, par
-variable : libellé, type, longueur, remarques, et pour les tables DCIR/PMSI/
-CARTOGRAPHIE une **colonne par millésime** avec un `X` si la variable existe
-cette année-là (les tables VALEUR/AUTRE/CAUSE_DECES n'ont pas ces colonnes
-annuelles, elles sont globalement statiques). Pour associer un `X` à son
-année, lire la ligne d'en-têtes `<th>` de la page. On peut cibler une
-variable précise sans tout relire :
+Le dictionnaire est en TSV (tabulation, une ligne par enregistrement) —
+détail des colonnes dans `references/dictionnaire/README.md`. Ne jamais lire ces fichiers en entier
+(jusqu'à 2 Mo) : filtrer par `grep` ou `awk -F'\t'`, qui fonctionnent partout
+(Git Bash sous Windows compris ; l'outil Grep aussi).
+
+| Fichier | Contenu |
+|---|---|
+| `tables.tsv` | 196 tables : produit (DCIR, PMSI MCO/SSR/HAD/RIP, Causes de décès, CARTOGRAPHIE_PATHOLOGIES, REFERENTIELS), libellé, clé primaire, millésimes |
+| `variables.tsv` | 4 977 variables : type, type Oracle, longueur, **nomenclature** (table de valeurs qui décode la colonne), millésimes (`debut`, `fin`, `absente`), libellé, observation, règle de gestion |
+| `jointures.tsv` | clés étrangères déclarées (ex. `ER_PRS_F` → `IR_BEN_R` sur `BEN_NIR_PSA,BEN_RNG_GEM`) |
+| `nomenclatures.tsv` | 631 nomenclatures (tables de valeurs ORAVAL, référentiels ORAREF dont `IR_PHA_R`) : colonnes, colonne code/libellé |
+| `valeurs.tsv` | codes et libellés des nomenclatures de moins de 50 Ko (ex. `IR_SPE_V`, `IR_NAT_V`) |
 
 ```bash
-# Vérifier qu'une variable existe dans une table et voir sa remarque
-grep -A1 '>CAM_ACT_COD<' references/dictionnaire/Kwikly/DCIR/ER_CAM_F.html
-
-# Lister les noms de variables d'une table (première colonne de chaque ligne)
-grep -o '<td >[A-Z0-9_]*</td>' references/dictionnaire/Kwikly/PMSI/T_MCOAAB.html
+# D = répertoire retenu ci-dessus ($TMP/dico ou references/dictionnaire)
+# Trouver une table par notion ou par nom
+grep -i "ccam" $D/tables.tsv
+awk -F'\t' '$1=="DCIR"' $D/tables.tsv                       # toutes les tables d'un produit
+# Une variable précise (type, nomenclature, millésimes, observations)
+awk -F'\t' '$1=="T_MCOaaB" && $2=="DGN_PAL"' $D/variables.tsv
+# Toutes les variables d'une table (nom, type, longueur, nomenclature, début, fin, absente, libellé)
+awk -F'\t' '$1=="ER_CAM_F"' $D/variables.tsv | cut -f2-10
+# Toutes les tables contenant une colonne
+awk -F'\t' '$2=="BEN_NIR_ANO"{print $1}' $D/variables.tsv
+# Variables d'une table présentes l'année y et absentes l'année z
+awk -F'\t' -v t=T_SSRaaB -v y=2024 -v z=2020 'function has(a){return $7!="" && $7<=a && ($8=="" || $8>=a) && index(","$9",", ","a",")==0} $1==t && has(y) && !has(z){print $2}' $D/variables.tsv
+# Décoder une nomenclature (codes et libellés)
+awk -F'\t' '$1=="IR_SPE_V"' references/dictionnaire/valeurs.tsv
+# Jointures déclarées d'une table
+awk -F'\t' '$1=="ER_PRS_F" || $3=="ER_PRS_F"' $D/jointures.tsv
 ```
 
-Points d'attention propres à cet export, à garder en tête en étape 2 :
+Points d'attention, à garder en tête en étape 2 :
 
-- Les tables PMSI sont référencées dans Kwikly avec le millésime générique
-  `AA` (ex. `T_MCOAAB`) ; en base Oracle le nom réel porte l'année sur 2
-  chiffres (ex. `T_MCO23B` pour 2023). Toujours reconstituer le nom réel avant
-  de l'utiliser dans une requête.
-- Pour les tables **DCIR**, l'export détaille la présence année par année de
-  2006 à 2012 (`X`) ; après 2012, une colonne unique `*` indique seulement
-  une présence à un moment donné. Une variable sans aucun `X` est apparue
-  après 2012 à une date inconnue ; une variable sans `*` a disparu (ex.
-  `ER_DCT_F.REM_TYP_AFF`, 2006 seulement). Pour un périmètre ≥ 2013 utilisant
-  une variable sans `X`, le signaler et, si possible, vérifier empiriquement
-  (`COUNT(*)` par année de `FLX_DIS_DTD`).
+- Tables PMSI au nom générique en `aa` minuscule (ex. `T_MCOaaB`) ; en base
+  Oracle le nom réel porte l'année sur 2 chiffres (ex. `T_MCO23B` pour 2023).
+  Toujours reconstituer le nom réel avant de l'utiliser dans une requête.
+- **Millésimes** : une variable existe de `debut` à `fin` (vide = toujours
+  présente) sauf les années listées dans `absente`. Pour toute variable ou
+  table utilisée dans le script final, vérifier que chaque année demandée
+  est couverte avant de l'intégrer au protocole ; en cas de doute (table
+  DCIR continue, variable récente), vérifier empiriquement (`COUNT(*)` par
+  année) et le signaler.
 - Vérifier aussi **sur quelle table** porte chaque colonne filtrée (ex.
-  `SEJ_TYP` est dans `T_MCO{aa}B`, pas dans `T_MCO{aa}C`) et la clé propre à
+  `SEJ_TYP` est dans `T_MCOaaB`, pas dans `T_MCOaaC`) et la clé propre à
   chaque champ PMSI (HAD/RIP : `ETA_NUM_EPMSI`, pas `ETA_NUM`).
-- Pour toute variable ou table utilisée dans le script final, vérifier que le
-  millésime demandé est bien couvert (colonne annuelle à `X`, ou table
-  listée dans le bon dossier de catégorie) avant de l'intégrer au protocole.
+- Colonne `nomenclature` : table de valeurs à joindre pour libeller un code ;
+  ses colonnes sont dans `nomenclatures.tsv`. Les grosses nomenclatures
+  (`valeurs_embarquees = non`, ex. `IR_PHA_R`, CCAM, CIM-10) s'interrogent en
+  base, ou via le fichier source
+  `https://gitlab.com/healthdatahub/applications-du-hdh/schema-snds/-/raw/master/nomenclatures/<ORAVAL|ORAREF>/<NOM>.csv`.
+- Tables absentes de schema-snds (ex. `ER_GEO_LOC_R`, archives `*_ARC`,
+  tables `T_SUP*`, détail des tables GV) : décrites dans `profils/hdh_oracle.md`
+  quand elles y figurent ; sinon, chercher dans la documentation officielle
+  (`snds/tables/`) et le signaler comme non vérifié dans le dictionnaire.
 - Si le dictionnaire, le profil et la documentation officielle ne suffisent
   pas à lever un doute (comportement de table inattendu, message d'erreur
   Oracle incompris…), le forum d'entraide (voir « Ressources complémentaires »
@@ -313,8 +324,8 @@ Suivre `references/template.R` (livrable par défaut) ou
 communes aux deux formats :
 
 - Chaque table et chaque variable utilisées vérifiées dans le dictionnaire
-  Kwikly, disponibilité par millésime confirmée pour toutes les années
-  demandées (voir étape 2, y compris la prudence sur les colonnes DCIR `*`).
+  (`variables.tsv`), disponibilité par millésime confirmée pour toutes les
+  années demandées (voir étape 2).
 - Connexion et fuseau : recopier le bloc « Connexion » du profil actif
   (`profils/hdh_oracle.md`) — `TZ`/`ORA_SDTZ` posés AVANT `dbConnect()`
   (`ORA_SDTZ` est lu à l'ouverture de session ; sinon décalage de date par
@@ -333,7 +344,7 @@ communes aux deux formats :
   génération par défaut.
 - Boucle par millésime (`purrr::map_dfr` / `furrr::future_map_dfr`) pour les
   tables PMSI/DCIR annualisées, avec reconstruction du nom de table réel
-  (`paste0("T_MCO", aa, "B")`) à partir du nom générique Kwikly. Cas distinct :
+  (`paste0("T_MCO", aa, "B")`) à partir du nom générique du dictionnaire. Cas distinct :
   toute requête touchant `ER_PRS_F` (et tables jointes) au-delà de quelques
   mois doit batcher sur `FLX_DIS_DTD` (voir `modele-donnees.md`, piège n°11,
   et `template.R` Pattern C) — ce n'est pas un millésime de table mais une
@@ -371,7 +382,7 @@ Livrer le fichier nommé d'après la question, accompagné d'une note
 méthodologique (ou intégrée au `.Rmd`) : définitions retenues (source des
 codes si recherche), flowchart d'attrition, limites (fiabilité du chaînage
 inter-source le cas échéant, année PMSI = année de sortie, évolutions de
-codage, disponibilité des variables DCIR après 2012, dates PMSI avant 2009,
+codage, alimentation effective des variables DCIR, dates PMSI avant 2009,
 réforme SMR 2023, exhaustivité du statut vital), et un rappel explicite de la règle de
 non-persistance locale des extractions SNDS identifiantes avant de clore
 l'échange.

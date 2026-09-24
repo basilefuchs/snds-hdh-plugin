@@ -8,25 +8,28 @@
 > § « Documentation officielle en ligne ») fait elle-même foi sur les
 > filtres/méthodologie et prime sur les deux si divergence constatée.
 
-## Organisation générale — les 6 catégories Kwikly
+## Organisation générale — produits du dictionnaire
 
-Le dictionnaire SNDS (export HTML « Kwikly ») organise les tables en 6
-catégories :
+Le dictionnaire (`references/dictionnaire/`, généré depuis schema-snds du
+Health Data Hub, licence MPL-2.0) organise les 196 tables par produit :
 
-| Catégorie      | Contenu                                             | Nb tables |
+| Produit        | Contenu                                             | Nb tables |
 |----------------|------------------------------------------------------|-----------|
-| DCIR           | Consommation de soins de ville (datamart inter-régimes) | 17     |
-| PMSI           | Séjours hospitaliers (MCO, SSR, HAD, RIP/psychiatrie) | 189      |
-| CAUSE_DECES    | Cause médicale de décès (CépiDc)                     | 2         |
-| CARTOGRAPHIE   | Cartographie des pathologies (tables individuelles : tops pathologies/ALD) | 5 |
-| VALEUR         | Tables de valeurs / codes (nomenclatures)             | 478       |
-| AUTRE          | 13 tables de référence propres (dont `IR_BEN_R`, `IR_PHA_R`, `IR_IMB_R`), indexées sous la catégorie AUTRE ; le dossier Kwikly/AUTRE/ contient aussi une copie des 478 pages détail VALEUR (soit 491 fichiers physiques), mais celles-ci restent indexées sous VALEUR, pas AUTRE | 13 |
+| DCIR           | Consommation de soins de ville (datamart inter-régimes) | 16     |
+| PMSI MCO / SSR / HAD / RIP | Séjours hospitaliers (RIP = psychiatrie) | 65 / 41 / 30 / 27 |
+| Causes de décès | Cause médicale de décès (CépiDc)                    | 2         |
+| CARTOGRAPHIE_PATHOLOGIES | Cartographie des pathologies (tables individuelles : tops pathologies/ALD) | 4 |
+| REFERENTIELS   | Référentiels propres (`IR_BEN_R`, `IR_IMB_R`, `IR_ETM_R`…) | 11 |
 
-Les tables PMSI/DCIR millésimées portent, dans Kwikly, un nom générique avec
-`AA` en guise de millésime (ex. `T_MCOAAB`) ; en base Oracle, le nom réel
-porte l'année sur 2 chiffres (ex. `T_MCO23B` pour 2023, `T_MCO09B` pour 2009).
-Reconstituer systématiquement `paste0("T_MCO", aa, "B")` (avec `aa` sur 2
-chiffres, zéro-paddé) avant toute requête.
+Les 631 nomenclatures (tables de valeurs `ORAVAL`, référentiels `ORAREF` dont
+`IR_PHA_R`) sont dans `nomenclatures.tsv` ; la colonne `nomenclature` de
+`variables.tsv` indique celle qui décode chaque variable.
+
+Les tables PMSI millésimées portent un nom générique avec `aa` en guise de
+millésime (ex. `T_MCOaaB`) ; en base Oracle, le nom réel porte l'année sur 2
+chiffres (ex. `T_MCO23B` pour 2023, `T_MCO09B` pour 2009). Reconstituer
+systématiquement `paste0("T_MCO", aa, "B")` (avec `aa` sur 2 chiffres,
+zéro-paddé) avant toute requête.
 
 ## DCIR — soins de ville
 
@@ -69,9 +72,9 @@ Chaînage et filtres qualité de `T_MCO{aa}C`/`T_HAD{aa}C`/`T_RIP{aa}C` et
 groupage de `T_HAD{aa}GRP`/`T_RIP{aa}RSA` **validés** via la documentation
 officielle HDH (voir `profils/hdh_oracle.md`, sections HAD et RIP). \* Tables
 non filtrées : diagnostics/actes détaillés HAD et actes RIP existent dans le
-dictionnaire Kwikly mais leur structure exacte n'a pas encore été vérifiée
-dans cet environnement — vérifier les colonnes dans les pages détail avant
-utilisation (voir « Comment utiliser le dictionnaire Kwikly » ci-dessous).
+dictionnaire mais leur structure exacte n'a pas encore été vérifiée dans cet
+environnement — vérifier les colonnes dans `variables.tsv` avant utilisation
+(voir « Comment utiliser le dictionnaire » ci-dessous).
 
 Diagnostics « principaux » selon le champ :
 
@@ -109,7 +112,7 @@ pour une cause de décès unique (mortalité par cause), `KI_ECD_R` pour capter
 les causes associées/contributives (ex. comorbidités mentionnées au
 certificat).
 
-## CARTOGRAPHIE, VALEUR, AUTRE
+## CARTOGRAPHIE, nomenclatures, référentiels
 
 - **CARTOGRAPHIE** : tables individuelles de la cartographie des pathologies
   CNAM (`CRTO_CT_*`, 1 ligne par bénéficiaire et par millésime, identifiant
@@ -117,19 +120,18 @@ certificat).
   pathologies/ALD (`CRTO_CT_IND_GN_AAAA`), résidence (`CRTO_CT_RES_GN_AAAA`) ;
   passage vers le DCIR via `CRTO_CT_IDE_GN` (`BEN_IDT_ANO` ↔
   `BEN_NIR_PSA`+`BEN_RNG_GEM`).
-- **VALEUR** : 478 tables de correspondance code → libellé (nomenclatures,
-  suffixe `_V`). À utiliser pour libeller un résultat, pas comme table de
-  faits.
-- **AUTRE** : 13 tables de référence propres (le dossier `Kwikly/AUTRE/`
-  contient aussi d'anciennes copies des pages VALEUR, datées du 19/03/2026 :
-  ne pas les utiliser, les pages à jour sont sous `Kwikly/VALEUR/`), dont les trois les plus utiles en pratique : `IR_BEN_R`
-  (référentiel bénéficiaire — décès, résidence, naissance), `IR_PHA_R`
-  (référentiel médicament — classe ATC, CIP13/UCD) et `IR_IMB_R`
-  (référentiel médicalisé — ALD, filtres validés dans `profils/hdh_oracle.md`).
-  Les 10 autres (`DA_PRA_R`, `IR_ACS_R`(+`_ARC`), `IR_BEN_R_ARC`, `IR_ETM_R`,
-  `IR_IBA_R`, `IR_MAT_R`, `IR_MTT_R`, `IR_ORC_R`(+`_ARC`)) n'ont pas encore
-  d'usage documenté dans cet environnement — à explorer via leur page Kwikly
-  au cas par cas.
+- **Nomenclatures** (tables de valeurs, suffixe `_V`, et référentiels
+  `ORAREF`) : correspondance code → libellé. À utiliser pour libeller un
+  résultat, pas comme table de faits ; valeurs des petites nomenclatures dans
+  `valeurs.tsv`.
+- **Référentiels** : les plus utiles en pratique sont `IR_BEN_R`
+  (référentiel bénéficiaire — décès, résidence, naissance, table de passage
+  des identifiants), `IR_PHA_R` (référentiel médicament — classe ATC,
+  CIP13/UCD ; nomenclature ORAREF, colonnes dans `nomenclatures.tsv`) et
+  `IR_IMB_R` (référentiel médicalisé — ALD, filtres validés dans
+  `profils/hdh_oracle.md`). Les autres (`DA_PRA_R`, `IR_ACS_R`, `IR_ETM_R`,
+  `IR_MAT_R`, `IR_MTT_R`, `IR_ORC_R`…) n'ont pas encore d'usage documenté
+  dans cet environnement — à explorer via `variables.tsv` au cas par cas.
 
 ## Chaînage patient — identifiants et table de passage `IR_BEN_R`
 
@@ -233,14 +235,12 @@ tout comptage de patients uniques.
 7. **Évolutions de codage et de structure de table** : ex. `EXT_PMSI`
    (actes CCAM MCO) absent avant 2015 — deux formes de requête selon le
    millésime ; plus généralement, toujours croiser la période demandée avec
-   les colonnes annuelles Kwikly avant de figer une requête pluriannuelle.
-8. **Colonnes annuelles DCIR incomplètement documentées** : Kwikly détaille
-   les millésimes DCIR année par année de 2006 à 2012 (`X`) ; après 2012, `*`
-   indique seulement une présence à un moment donné. Une variable sans aucun
-   `X` est apparue après 2012 à une date inconnue ; une variable sans `*` a
-   disparu (ex. `ER_DCT_F.REM_TYP_AFF`, 2006 seulement). Pour un périmètre
-   ≥ 2013 utilisant une variable sans `X`, vérifier empiriquement
-   (`COUNT(*)` par année de `FLX_DIS_DTD`).
+   les millésimes de `variables.tsv` (`debut`, `fin`, `absente`) avant de
+   figer une requête pluriannuelle.
+8. **Tables DCIR continues** : les millésimes déclarés d'une variable DCIR
+   (`debut`/`fin`) disent quand elle a été créée ou supprimée, pas si elle est
+   effectivement alimentée chaque année. Pour une variable récente ou peu
+   utilisée, vérifier empiriquement (`COUNT(*)` par année de `FLX_DIS_DTD`).
 9. **Fuseau horaire Oracle/R** : sans `Sys.setenv(TZ=...)` et
    `Sys.setenv(ORA_SDTZ=...)` posés à `Europe/Paris` AVANT `dbConnect()`
    (`ORA_SDTZ` est lu à l'ouverture de session), les dates remontées par `ROracle` peuvent être décalées d'un jour
@@ -267,39 +267,19 @@ tout comptage de patients uniques.
     24 (voir `points-de-vigilance.md`). Pattern de code validé :
     `template.R`, Pattern C.
 
-## Comment utiliser le dictionnaire Kwikly (recherche en deux niveaux)
+## Comment utiliser le dictionnaire
 
-Il n'existe pas de CSV variable-par-variable unique. La recherche se fait en
-deux temps :
-
-1. **Trouver la ou les tables candidates** dans
-   `references/dictionnaire/index-tables.csv` (colonnes
-   `categorie;table;libelle;chemin`) :
-   ```bash
-   grep -i "ccam" references/dictionnaire/index-tables.csv      # notion dans les libellés
-   grep '^"DCIR";' references/dictionnaire/index-tables.csv      # toutes les tables d'une catégorie (champs entre guillemets)
-   ```
-   Si ce fichier est absent ou semble périmé, chercher directement dans la
-   page d'index de la catégorie (`Kwikly/DCIR.html`, `Kwikly/PMSI.html`,
-   etc.), qui liste toutes les tables de la catégorie avec leur libellé et
-   le lien vers la page détail.
-
-2. **Consulter la page détail** (`references/dictionnaire/Kwikly/<CATEGORIE>/<TABLE>.html`,
-   grep ciblé ; Read seulement si nécessaire, certaines pages dépassent
-   200 Ko) pour la liste exhaustive des colonnes : variable,
-   libellé, type, longueur, remarques, et — pour DCIR/PMSI/CARTOGRAPHIE
-   uniquement — une colonne par millésime avec un `X` si la variable existe
-   cette année-là. Pour cibler une variable précise sans tout relire :
-   ```bash
-   grep -A1 '>CAM_ACT_COD<' references/dictionnaire/Kwikly/DCIR/ER_CAM_F.html
-   ```
+Fichiers TSV dans `references/dictionnaire/` (colonnes décrites dans son
+`README.md`) : `tables.tsv`, `variables.tsv`, `jointures.tsv`,
+`nomenclatures.tsv`, `valeurs.tsv`. Recherche par `grep` / `awk -F'\t'`,
+jamais de lecture intégrale — exemples de commandes dans `SKILL.md`, étape 2.
 
 Les pièges propres à l'environnement (disponibilité exacte des schémas…)
 sont dans `profils/hdh_oracle.md`, qui fait foi.
 
 ## Documentation officielle en ligne (référence vivante)
 
-En complément du dictionnaire Kwikly (structure des tables) et de ce
+En complément du dictionnaire (structure des tables) et de ce
 document (modèle générique), la documentation collaborative officielle du
 Health Data Hub — https://documentation-snds.health-data-hub.fr/ — est une
 référence vivante à consulter via WebFetch quand elle est disponible,
@@ -307,7 +287,7 @@ en particulier pour tout ce qui n'est pas (encore) capturé statiquement ici :
 les ~80 fiches thématiques (`snds/fiches/`, ex. chaînage mère-enfant,
 cartographie des pathologies, ALD), et la section `snds/tables/` (schéma
 officiel, alimentant https://health-data-hub.shinyapps.io/dico-snds/) à
-croiser avec Kwikly en cas de doute. Le détail des deux fiches déjà exploitées
+croiser avec le dictionnaire en cas de doute (même source schema-snds). Le détail des deux fiches déjà exploitées
 pour bâtir ce document (filtres recommandés, valeurs manquantes) est dans
 `profils/hdh_oracle.md`, section « Documentation officielle en ligne ».
 
